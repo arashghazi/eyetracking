@@ -166,13 +166,13 @@ def submit_validation(uow: MeasurementUnitOfWork, principal: Principal, session_
     return v
 
 
-def set_layout(uow: MeasurementUnitOfWork, principal: Principal, session_id: int, segment: str, layout: dict) -> StimulusLayout:
+def set_layout(uow: MeasurementUnitOfWork, principal: Principal, session_id: int, segment: str, layout: dict, stage_index: int | None = None) -> StimulusLayout:
     s = _own_session(uow, principal, session_id)
     s.ensure_open()
     if segment not in SEGMENTS:
         raise Invalid(f"segment must be one of {SEGMENTS}")
     validate_layout(layout)
-    l = uow.layouts.add(StimulusLayout(session_id=s.id or 0, segment=segment, layout=layout))
+    l = uow.layouts.add(StimulusLayout(session_id=s.id or 0, segment=segment, layout=layout, stage_index=stage_index))
     uow.commit()
     return l
 
@@ -315,9 +315,14 @@ def summarize(uow: MeasurementUnitOfWork, s: Session) -> dict:
         "events_count": len(events),
         "notes": notes,
     }
+    from eyetracking.domain.research import grade_quality
+
     from .practice_use_cases import practice_summary
 
-    return practice_summary(uow, s, base)
+    out = practice_summary(uow, s, base)
+    settings = settings_for_study(uow, s.study_id)
+    out["quality"] = grade_quality(out, settings.quality_max_uncertain_share, settings.quality_max_missing_share).as_dict()
+    return out
 
 
 def my_session(uow: MeasurementUnitOfWork, principal: Principal, session_id: int) -> dict:
@@ -358,6 +363,8 @@ def list_study_sessions(uow: MeasurementUnitOfWork, principal: Principal, study_
                 "validation_passed": summary["validation"]["passed"] if summary["validation"] else None,
                 "coverage": summary["coverage"],
                 "eye_region_attention": summary["eye_region_attention"],
+                "quality": summary["quality"],
+                "protocol": summary.get("protocol") and {k: summary["protocol"][k] for k in ("id", "name", "version", "path")},
             }
         )
     return out

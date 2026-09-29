@@ -21,8 +21,12 @@ Updated: 2026-09-29 · design authority: docs/design/EyeTracking-Product-Design-
 - Flutter: participant home with ordered assignments and states, topic confirmation, gradual practice (face levels 0–3, number zones, keyboard / four-choice / symbol responses, comfort question per stage, hold / easier / stop / complete from the server), interest conversation (video segments through signed links, questions with branches, comprehension, post clip), summary with the three outcomes and the improvement line; admin Protocols (editor, publish, new draft), Content (editor, upload, approve), Assignments, session detail with outcomes, trials, answers and comfort.
 - Tests: 35 backend; Flutter core 80, participant 219, admin 119. Browser runs of both paths recorded in docs/features/step3-e2e.md. See docs/features/step3-backend.md, step3-flutter.md and docs/api/step3-practice.md.
 
-## Not started (design steps 4–7)
-Sessions replay and analysis; AI content pipeline; pilot; live avatar.
+## Build step 4 — research and data (backend done; Flutter in progress)
+- Quality grades with study thresholds, replay bundle (stimulus geometry + gaze estimate, gaps, pauses, quality strip, signed media), analysis with filters and comparability groups (never pooled across device / protocol version / estimator / stimulus size), coded CSV/JSON exports with demographics and versions, data dictionary, access log, participant raw data, withdrawal with retention policy, researcher deletion of research rows.
+- Tests: 41 backend. See docs/features/step4-backend.md and docs/api/step4-research-data.md.
+
+## Not started (design steps 5–7)
+AI content pipeline; pilot; live avatar.
 
 ## Open decisions (design p. 7)
 Age range and inclusion criteria; final number position and comfort rule; filmed actor vs realistic avatar; validation pass thresholds (placeholders 80 % / 20 %); research-grade tracker access.

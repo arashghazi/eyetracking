@@ -17,7 +17,8 @@ def make_ready(world, participant_token: str):
     c = world.c
     c.put(f"/studies/{world.study_a}/information-sheet", json=SHEET, headers=auth(world.researcher_a))
     c.put(f"/studies/{world.study_a}/demographics-form", json=FORM, headers=auth(world.researcher_a))
-    c.post("/me/consent", json={"sheet_version": 1, "participate": True}, headers=auth(participant_token))
+    version = c.get("/me/information-sheet", headers=auth(participant_token)).json()["version"]
+    c.post("/me/consent", json={"sheet_version": version, "participate": True}, headers=auth(participant_token))
     r = c.put("/me/demographics", json={"answers": {"age": 25, "diagnosis": True}}, headers=auth(participant_token))
     assert r.status_code == 200
 

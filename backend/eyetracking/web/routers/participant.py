@@ -75,7 +75,3 @@ def submit_demographics(
 ):
     return m.answers_out(use_cases.submit_demographics(uow, clock, principal, body.answers))
 
-
-@router.get("/data")
-def my_data(principal: Principal = Depends(get_principal), uow=Depends(get_uow)):
-    return use_cases.my_data_export(uow, principal)

@@ -224,6 +224,9 @@ class SqlLayoutRepo(_Repo):
     def latest(self, session_id: int) -> StimulusLayout | None:
         return self.s.scalar(select(StimulusLayout).where(StimulusLayout.session_id == session_id).order_by(StimulusLayout.id.desc()).limit(1))
 
+    def session_all(self, session_id: int) -> list[StimulusLayout]:
+        return list(self.s.scalars(select(StimulusLayout).where(StimulusLayout.session_id == session_id).order_by(StimulusLayout.id)))
+
 
 class SqlSampleRepo(_Repo):
     def add_many(self, samples: list[GazeSample]) -> int:
@@ -363,3 +366,18 @@ class SqlAnswerRepo(_Repo):
 
     def for_session(self, session_id: int) -> list[Answer]:
         return list(self.s.scalars(select(Answer).where(Answer.session_id == session_id).order_by(Answer.id)))
+
+
+# ---------- step 4 repositories ----------
+
+from eyetracking.domain.research import AccessLogEntry  # noqa: E402
+
+
+class SqlAccessLogRepo(_Repo):
+    def add(self, e: AccessLogEntry) -> AccessLogEntry:
+        self.s.add(e)
+        self.s.flush()
+        return e
+
+    def list_for_study(self, study_id: int, limit: int) -> list[AccessLogEntry]:
+        return list(self.s.scalars(select(AccessLogEntry).where(AccessLogEntry.study_id == study_id).order_by(AccessLogEntry.id.desc()).limit(limit)))

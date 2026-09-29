@@ -26,6 +26,8 @@ class SettingsOut(BaseModel):
     gaze_conf_threshold: float
     calibration_points: int
     allow_continue_without_validation: bool
+    quality_max_uncertain_share: float
+    quality_max_missing_share: float
 
 
 class SettingsIn(BaseModel):
@@ -35,6 +37,8 @@ class SettingsIn(BaseModel):
     gaze_conf_threshold: float | None = None
     calibration_points: int | None = None
     allow_continue_without_validation: bool | None = None
+    quality_max_uncertain_share: float | None = None
+    quality_max_missing_share: float | None = None
 
 
 class RawSample(BaseModel):
@@ -109,6 +113,7 @@ class ValidationOut(BaseModel):
 class LayoutIn(BaseModel):
     segment: Literal["baseline", "practice", "post", "free"]
     layout: dict[str, Any]
+    stage_index: int | None = None
 
 
 class SamplesIn(BaseModel):
@@ -134,6 +139,8 @@ def _settings_out(s: MeasurementSettings) -> SettingsOut:
         gaze_conf_threshold=s.gaze_conf_threshold,
         calibration_points=s.calibration_points,
         allow_continue_without_validation=s.allow_continue_without_validation,
+        quality_max_uncertain_share=s.quality_max_uncertain_share,
+        quality_max_missing_share=s.quality_max_missing_share,
     )
 
 
@@ -202,7 +209,7 @@ def validation(session_id: int, body: ValidationIn, principal: Principal = Depen
 
 @router.post("/me/sessions/{session_id}/layout")
 def set_layout(session_id: int, body: LayoutIn, principal: Principal = Depends(get_principal), uow=Depends(get_uow)):
-    l = uc.set_layout(uow, principal, session_id, body.segment, body.layout)
+    l = uc.set_layout(uow, principal, session_id, body.segment, body.layout, body.stage_index)
     return {"layout_id": l.id}
 
 

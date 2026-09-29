@@ -367,4 +367,9 @@ def get_participant_identity(uow: UnitOfWork, principal: Principal, study_id: in
     user = uow.users.get(p.user_id)
     if user is None:
         raise NotFound("participant account not found")
+    if hasattr(uow, "access_log"):
+        from eyetracking.domain.research import AccessLogEntry
+
+        uow.access_log.add(AccessLogEntry(study_id=study_id, user_id=principal.user_id, role=principal.role.value, action="identity_reveal", detail={"participant_code": code}))
+        uow.commit()
     return user.email

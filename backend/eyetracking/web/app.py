@@ -13,7 +13,7 @@ from eyetracking.infrastructure.media import LocalMediaStore
 from eyetracking.infrastructure.security import Argon2Hasher, HmacMediaSigner, JwtTokens, SystemClock
 from eyetracking.infrastructure.uow import SqlUnitOfWork, create_schema, make_engine, session_factory_for
 
-from .routers import auth, participant, practice, sessions, studies
+from .routers import auth, participant, practice, research, sessions, studies
 from .settings import Settings
 
 _STATUS = {NotFound: 404, Forbidden: 403, Conflict: 409, Invalid: 422, AuthenticationFailed: 401}
@@ -64,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth.router)
+    app.include_router(research.router)
     app.include_router(participant.router)
     app.include_router(studies.router)
     app.include_router(sessions.router)

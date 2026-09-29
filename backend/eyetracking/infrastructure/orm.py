@@ -40,6 +40,7 @@ studies = Table(
     Column("id", Integer, primary_key=True),
     Column("name", String(200), nullable=False),
     Column("created_at", DateTime, nullable=False),
+    Column("retention_policy", String(20), nullable=False, default="delete_all"),
 )
 
 study_memberships = Table(
@@ -160,6 +161,7 @@ def start_mappers() -> None:
     mapper_registry.map_imperatively(DemographicsAnswer, demographics_answers)
     start_measurement_mappers()
     start_practice_mappers()
+    start_research_mappers()
     _mapped = True
 
 
@@ -189,6 +191,8 @@ measurement_settings = Table(
     Column("gaze_conf_threshold", Float, nullable=False, default=0.5),
     Column("calibration_points", Integer, nullable=False, default=9),
     Column("allow_continue_without_validation", Boolean, nullable=False, default=True),
+    Column("quality_max_uncertain_share", Float, nullable=False, default=0.2),
+    Column("quality_max_missing_share", Float, nullable=False, default=0.2),
 )
 
 sessions = Table(
@@ -249,6 +253,7 @@ stimulus_layouts = Table(
     Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
     Column("segment", String(12), nullable=False),
     Column("layout", JSON, nullable=False),
+    Column("stage_index", Integer, nullable=True),
     Column("created_at", DateTime, nullable=False),
 )
 
@@ -418,3 +423,25 @@ def start_practice_mappers() -> None:
     mapper_registry.map_imperatively(Trial, trials)
     mapper_registry.map_imperatively(StageResult, stage_results)
     mapper_registry.map_imperatively(Answer, answers)
+
+
+# ---------- step 4 tables ----------
+
+from eyetracking.domain.research import AccessLogEntry  # noqa: E402
+
+access_log = Table(
+    "access_log",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, nullable=True),
+    Column("user_id", Integer, nullable=False),
+    Column("role", String(20), nullable=False),
+    Column("action", String(40), nullable=False),
+    Column("detail", JSON, nullable=False, default=dict),
+    Column("created_at", DateTime, nullable=False),
+    Index("ix_access_log_study", "study_id", "created_at"),
+)
+
+
+def start_research_mappers() -> None:
+    mapper_registry.map_imperatively(AccessLogEntry, access_log)

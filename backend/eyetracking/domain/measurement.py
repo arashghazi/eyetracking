@@ -30,6 +30,7 @@ EVENT_TYPES = (
     "face_lost",
     "face_found",
     "comfort_answer",
+    "media_start",
     "note",
 )
 INVALIDATING_EVENTS = ("camera_changed", "orientation_changed", "zoom_changed")
@@ -55,10 +56,12 @@ class MeasurementSettings:
     gaze_conf_threshold: float = 0.5
     calibration_points: int = 9
     allow_continue_without_validation: bool = True
+    quality_max_uncertain_share: float = 0.2
+    quality_max_missing_share: float = 0.2
     id: int | None = None
 
     def validate(self) -> None:
-        for name in ("validation_min_correct", "validation_max_uncertain", "gaze_conf_threshold"):
+        for name in ("validation_min_correct", "validation_max_uncertain", "gaze_conf_threshold", "quality_max_uncertain_share", "quality_max_missing_share"):
             v = getattr(self, name)
             if not 0.0 <= float(v) <= 1.0:
                 raise Invalid(f"{name} must be between 0 and 1")
@@ -125,6 +128,7 @@ class StimulusLayout:
     session_id: int
     segment: str
     layout: dict
+    stage_index: int | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     id: int | None = None
 

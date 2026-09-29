@@ -45,10 +45,14 @@ class User:
     id: int | None = None
 
 
+RETENTION_POLICIES = ("delete_all", "keep_coded")
+
+
 @dataclass
 class Study:
     name: str
     created_at: datetime = field(default_factory=datetime.utcnow)
+    retention_policy: str = "delete_all"
     id: int | None = None
 
 
