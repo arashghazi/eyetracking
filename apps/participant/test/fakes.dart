@@ -1,4 +1,5 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
+import 'package:eyetracking_core/testing.dart';
 import 'package:participant_app/app_dependencies.dart';
 import 'package:participant_app/features/auth/application/auth_controller.dart';
 import 'package:participant_app/features/auth/domain/auth_repository.dart';
@@ -9,6 +10,8 @@ import 'package:participant_app/features/demographics/domain/demographics_reposi
 import 'package:participant_app/features/home/domain/home_repository.dart';
 import 'package:participant_app/features/home/domain/participant_overview.dart';
 import 'package:participant_app/features/profile/domain/profile_repository.dart';
+
+import 'session_kit.dart';
 
 class FakeAuthRepository implements AuthRepository {
   ApiException? failure;
@@ -190,12 +193,16 @@ class TestBed {
     FakeConsentRepository? consent,
     FakeProfileRepository? profile,
     FakeDemographicsRepository? demographics,
+    FakeSessionRepository? sessions,
   })  : authRepository = FakeAuthRepository(),
         home = home ?? FakeHomeRepository(),
         consent = consent ?? FakeConsentRepository(),
         profile = profile ?? FakeProfileRepository(),
         demographics = demographics ?? FakeDemographicsRepository(form: sampleForm),
-        dataExport = FakeDataExportRepository() {
+        dataExport = FakeDataExportRepository(),
+        sessions = sessions ?? FakeSessionRepository(),
+        gaze = FakeGazeEstimator(),
+        frameSource = FakeFrameSource() {
     auth = AuthController(authRepository);
   }
 
@@ -206,6 +213,9 @@ class TestBed {
   final FakeProfileRepository profile;
   final FakeDemographicsRepository demographics;
   final FakeDataExportRepository dataExport;
+  final FakeSessionRepository sessions;
+  final FakeGazeEstimator gaze;
+  final FakeFrameSource frameSource;
 
   AppDependencies get dependencies => AppDependencies(
         auth: auth,
@@ -214,5 +224,9 @@ class TestBed {
         profile: profile,
         demographics: demographics,
         dataExport: dataExport,
+        sessions: sessions,
+        gaze: gaze,
+        frameSource: frameSource,
+        device: const DeviceInfo(platform: 'web', userAgent: 'test-agent'),
       );
 }

@@ -55,11 +55,19 @@ def build_router(estimator: GazeEstimator) -> APIRouter:
 
 
 def estimator_from_env() -> GazeEstimator:
-    """EYETRACKING_GAZE_MODEL=synthetic|l2cs, EYETRACKING_GAZE_WEIGHTS=<path to L2CS weights>."""
-    from .detector import HaarFaceDetector
+    """EYETRACKING_GAZE_MODEL=synthetic|l2cs|e2e-fake, EYETRACKING_GAZE_WEIGHTS=<path to L2CS weights>.
 
-    detector = HaarFaceDetector()
+    `e2e-fake` always reports one face at a fixed box; it exists only to drive the apps end to end
+    without a camera in front of a real face. It is synthetic like the others.
+    """
+    from .detector import FixedBoxDetector, HaarFaceDetector
+
     model = os.environ.get("EYETRACKING_GAZE_MODEL", "synthetic").lower()
+    if model == "e2e-fake":
+        from .synthetic import SyntheticEstimator
+
+        return SyntheticEstimator(FixedBoxDetector([200, 100, 240, 240], conf=0.9))
+    detector = HaarFaceDetector()
     if model == "l2cs":
         from .l2cs import L2CSEstimator
 

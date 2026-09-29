@@ -10,6 +10,7 @@ import 'features/data_export/data/api_data_export_repository.dart';
 import 'features/demographics/data/api_demographics_repository.dart';
 import 'features/home/data/api_home_repository.dart';
 import 'features/profile/data/api_profile_repository.dart';
+import 'features/session/data/api_session_repository.dart';
 
 /// Service address; override with `--dart-define=API_BASE_URL=...`.
 const apiBaseUrl = String.fromEnvironment(
@@ -32,6 +33,10 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     profile: ApiProfileRepository(api),
     demographics: ApiDemographicsRepository(api),
     dataExport: ApiDataExportRepository(api),
+    sessions: ApiSessionRepository(api),
+    gaze: GazeServiceClient.fromEnvironment(api),
+    frameSource: createFrameSource(),
+    device: currentDeviceInfo(),
     initialInvitationToken: Uri.base.queryParameters['invitation'] ?? '',
   );
 }

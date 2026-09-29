@@ -18,3 +18,26 @@ String formatTimestamp(String? iso, {String fallback = '-'}) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)} UTC';
 }
+
+/// Formats a 0..1 share as a whole percentage such as `43 %`.
+String formatPercent(double? share, {String fallback = '—'}) =>
+    share == null ? fallback : '${(share * 100).round()} %';
+
+/// Formats a duration in milliseconds as seconds (`12.4 s`) or `m:ss` from a
+/// minute on.
+String formatDurationMs(int ms) {
+  if (ms < 60000) return '${(ms / 1000).toStringAsFixed(1)} s';
+  final total = (ms / 1000).round();
+  final minutes = total ~/ 60;
+  final seconds = (total % 60).toString().padLeft(2, '0');
+  return '$minutes:$seconds min';
+}
+
+/// Formats a session clock value as `mm:ss.mmm`.
+String formatClockMs(int ms) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  final minutes = ms ~/ 60000;
+  final seconds = (ms ~/ 1000) % 60;
+  final millis = (ms % 1000).toString().padLeft(3, '0');
+  return '${two(minutes)}:${two(seconds)}.$millis';
+}

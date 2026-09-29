@@ -8,8 +8,10 @@ import 'features/auth/data/api_auth_repository.dart';
 import 'features/demographics_form/data/api_demographics_form_repository.dart';
 import 'features/information_sheet/data/api_information_sheet_repository.dart';
 import 'features/invitations/data/api_invitations_repository.dart';
+import 'features/measurement_settings/data/api_measurement_settings_repository.dart';
 import 'features/members/data/api_members_repository.dart';
 import 'features/participants/data/api_participants_repository.dart';
+import 'features/sessions/data/api_sessions_repository.dart';
 import 'features/studies/data/api_studies_repository.dart';
 
 /// Service address; override with `--dart-define=API_BASE_URL=...`.
@@ -34,6 +36,8 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     informationSheet: ApiInformationSheetRepository(api),
     demographicsForm: ApiDemographicsFormRepository(api),
     members: ApiMembersRepository(api),
+    sessions: ApiSessionsRepository(api),
+    measurementSettings: ApiMeasurementSettingsRepository(api),
   );
 }
 

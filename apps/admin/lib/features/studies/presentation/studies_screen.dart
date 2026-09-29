@@ -173,6 +173,8 @@ class _StudiesScreenState extends State<StudiesScreen> {
                               builder: (_) => StudyScreen(
                                 study: c.studies[i],
                                 isAdmin: isAdmin,
+                                canEditSettings:
+                                    widget.auth.session?.role != 'analyst',
                               ),
                             ),
                           ),

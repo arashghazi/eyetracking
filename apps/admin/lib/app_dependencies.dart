@@ -2,8 +2,10 @@ import 'features/auth/application/auth_controller.dart';
 import 'features/demographics_form/domain/demographics_form_repository.dart';
 import 'features/information_sheet/domain/information_sheet_repository.dart';
 import 'features/invitations/domain/invitations_repository.dart';
+import 'features/measurement_settings/domain/measurement_settings_repository.dart';
 import 'features/members/domain/members_repository.dart';
 import 'features/participants/domain/participants_repository.dart';
+import 'features/sessions/domain/sessions_repository.dart';
 import 'features/studies/domain/studies_repository.dart';
 
 /// Everything the screens need, expressed as ports so tests can pass fakes.
@@ -16,6 +18,8 @@ class AppDependencies {
     required this.informationSheet,
     required this.demographicsForm,
     required this.members,
+    required this.sessions,
+    required this.measurementSettings,
   });
 
   final AuthController auth;
@@ -25,4 +29,6 @@ class AppDependencies {
   final InformationSheetRepository informationSheet;
   final DemographicsFormRepository demographicsForm;
   final MembersRepository members;
+  final SessionsRepository sessions;
+  final MeasurementSettingsRepository measurementSettings;
 }

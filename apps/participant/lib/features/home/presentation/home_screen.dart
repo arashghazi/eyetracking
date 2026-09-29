@@ -7,6 +7,9 @@ import '../../consent/presentation/consent_screen.dart';
 import '../../data_export/presentation/data_export_screen.dart';
 import '../../demographics/presentation/demographics_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../session/application/my_sessions_controller.dart';
+import '../../session/presentation/my_sessions_card.dart';
+import '../../session/presentation/session_flow_screen.dart';
 import '../application/home_controller.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,16 +23,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final HomeController _controller;
+  late final MySessionsController _sessions;
 
   @override
   void initState() {
     super.initState();
-    _controller = HomeController(AppScope.read(context).home)..load();
+    final deps = AppScope.read(context);
+    _controller = HomeController(deps.home)..load();
+    _sessions = MySessionsController(deps.sessions)..load();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _sessions.dispose();
     super.dispose();
   }
 
@@ -38,7 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => screen),
     );
-    if (mounted) await _controller.load();
+    if (mounted) {
+      await Future.wait([_controller.load(), _sessions.load()]);
+    }
   }
 
   void _openStep(String id) => switch (id) {
@@ -89,6 +98,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 _CodeCard(code: overview.code),
                 const SizedBox(height: 12),
                 _ChecklistCard(controller: c, onOpen: _openStep),
+                const SizedBox(height: 12),
+                StartSessionCard(
+                  enabled: c.isReady,
+                  onStart: () => _open(const SessionFlowScreen()),
+                ),
+                const SizedBox(height: 12),
+                ListenableBuilder(
+                  listenable: _sessions,
+                  builder: (context, _) => MySessionsCard(controller: _sessions),
+                ),
                 const SizedBox(height: 12),
                 const _ReassuranceCard(),
                 const SizedBox(height: 12),

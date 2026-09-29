@@ -42,9 +42,11 @@ void main() {
       expect(tester.takeException(), isNull);
 
       for (final tab in [
+        'Sessions',
         'Invitations',
         'Information sheet',
         'Demographics form',
+        'Measurement settings',
         'Members',
       ]) {
         await openTab(tester, tab);
@@ -58,7 +60,9 @@ void main() {
     final bed = TestBed();
     await openStudy(tester, bed, role: 'researcher');
     expect(find.widgetWithText(Tab, 'Participants'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Sessions'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Invitations'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Measurement settings'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Members'), findsNothing);
   });
 }

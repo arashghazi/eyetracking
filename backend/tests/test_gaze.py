@@ -90,3 +90,13 @@ def test_l2cs_pipeline_without_weights_is_synthetic(tmp_path):
     torch.save(bad, tmp_path / "bad.pkl")
     with pytest.raises((ValueError, RuntimeError)):
         L2CSEstimator(FixedBoxDetector([0, 0, 10, 10]), weights_path=str(tmp_path / "bad.pkl"), input_size=224)
+
+
+def test_estimator_from_env_modes(monkeypatch):
+    from eyetracking.gaze.service import estimator_from_env
+
+    monkeypatch.setenv("EYETRACKING_GAZE_MODEL", "e2e-fake")
+    est = estimator_from_env()
+    assert est.info()["synthetic"] is True and est.info()["face_detector"] == "FixedBoxDetector"
+    monkeypatch.setenv("EYETRACKING_GAZE_MODEL", "synthetic")
+    assert estimator_from_env().info()["face_detector"] == "HaarFaceDetector"
