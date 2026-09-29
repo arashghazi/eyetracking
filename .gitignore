@@ -4,3 +4,12 @@ build/
 __pycache__/
 *.log
 .env
+# backend
+*.db
+*.db-journal
+.pytest_cache/
+*.egg-info/
+.venv/
+# flutter
+.flutter-plugins-dependencies
+**/.metadata
