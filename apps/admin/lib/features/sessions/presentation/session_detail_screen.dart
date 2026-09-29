@@ -4,6 +4,9 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
+import '../../exports/application/download_controller.dart';
+import '../../exports/domain/exports_repository.dart';
+import '../../replay/presentation/replay_screen.dart';
 import '../application/sessions_controller.dart';
 import 'session_widgets.dart';
 
@@ -25,22 +28,52 @@ class SessionDetailScreen extends StatefulWidget {
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
   late final SessionDetailController _controller;
+  late final DownloadController _downloads;
+  late final ExportsRepository _exports;
 
   @override
   void initState() {
     super.initState();
+    final deps = AppScope.read(context);
     _controller = SessionDetailController(
-      AppScope.read(context).sessions,
+      deps.sessions,
       widget.studyId,
       widget.sessionId,
     )..load();
+    _exports = deps.exports;
+    _downloads = DownloadController(deps.saveFile);
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _downloads.dispose();
     super.dispose();
   }
+
+  void _openReplay() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ReplayScreen(
+          studyId: widget.studyId,
+          sessionId: widget.sessionId,
+          participantCode: widget.participantCode,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadSamples() => _downloads.download(
+        () => _exports.samplesCsv(widget.studyId, widget.sessionId),
+        filename: 'samples-${widget.participantCode}-${widget.sessionId}.csv',
+        mimeType: DownloadTypes.csv,
+      );
+
+  Future<void> _downloadEvents() => _downloads.download(
+        () => _exports.eventsCsv(widget.studyId, widget.sessionId),
+        filename: 'events-${widget.participantCode}-${widget.sessionId}.csv',
+        mimeType: DownloadTypes.csv,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -49,15 +82,24 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         title: Text('Session of ${widget.participantCode}'),
       ),
       body: ListenableBuilder(
-        listenable: _controller,
+        listenable: Listenable.merge([_controller, _downloads]),
         builder: (context, _) {
           final c = _controller;
+          final d = _downloads;
           final detail = c.detail;
           return PageFrame(
             maxWidth: 1200,
             banner: c.error != null
                 ? MessageBanner(message: c.error!, onDismiss: c.dismissError)
-                : null,
+                : d.error != null
+                    ? MessageBanner(message: d.error!, onDismiss: d.dismissError)
+                    : d.notice != null
+                        ? MessageBanner(
+                            message: d.notice!,
+                            kind: BannerKind.success,
+                            onDismiss: d.dismissNotice,
+                          )
+                        : null,
             children: [
               if (detail == null)
                 c.loading
@@ -73,7 +115,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                         ),
                       )
               else ...[
-                _Header(detail: detail),
+                _Header(detail: detail, onReplay: _openReplay),
                 const SizedBox(height: 12),
                 _Cards(summary: detail.summary),
                 if (detail.summary.outcomes != null) ...[
@@ -113,9 +155,17 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                   ),
                 ],
                 const SizedBox(height: 12),
-                _EventsSection(events: detail.events),
+                _EventsSection(
+                  events: detail.events,
+                  busy: d.busy,
+                  onDownload: _downloadEvents,
+                ),
                 const SizedBox(height: 12),
-                _SamplesSection(controller: c),
+                _SamplesSection(
+                  controller: c,
+                  busy: d.busy,
+                  onDownload: _downloadSamples,
+                ),
               ],
             ],
           );
@@ -233,9 +283,10 @@ class _TableBox extends StatelessWidget {
 // -------------------------------------------------------------------- header
 
 class _Header extends StatelessWidget {
-  const _Header({required this.detail});
+  const _Header({required this.detail, required this.onReplay});
 
   final SessionDetail detail;
+  final VoidCallback onReplay;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +314,17 @@ class _Header extends StatelessWidget {
               ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         SyntheticBadge(synthetic: s.synthetic),
+        if (s.quality != null)
+          KeyedSubtree(
+            key: const Key('header-quality'),
+            child: QualityBadge(quality: s.quality, compact: false),
+          ),
+        FilledButton.icon(
+          key: const Key('open-replay'),
+          onPressed: onReplay,
+          icon: const Icon(Icons.play_circle_outline, size: 18),
+          label: const Text('Replay'),
+        ),
       ],
     );
   }
@@ -935,9 +997,15 @@ class _SegmentsSection extends StatelessWidget {
 }
 
 class _EventsSection extends StatelessWidget {
-  const _EventsSection({required this.events});
+  const _EventsSection({
+    required this.events,
+    required this.busy,
+    required this.onDownload,
+  });
 
   final List<SessionEventRecord> events;
+  final bool busy;
+  final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -946,6 +1014,18 @@ class _EventsSection extends StatelessWidget {
       title: 'Events timeline',
       keyName: 'section-events',
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('download-events-csv'),
+              onPressed: busy ? null : onDownload,
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: const Text('Events CSV'),
+            ),
+          ),
+        ),
         if (events.isEmpty)
           const Text('No events were recorded.')
         else
@@ -990,9 +1070,15 @@ class _EventsSection extends StatelessWidget {
 }
 
 class _SamplesSection extends StatelessWidget {
-  const _SamplesSection({required this.controller});
+  const _SamplesSection({
+    required this.controller,
+    required this.busy,
+    required this.onDownload,
+  });
 
   final SessionDetailController controller;
+  final bool busy;
+  final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -1020,6 +1106,12 @@ class _SamplesSection extends StatelessWidget {
                   ? 'Loading...'
                   : (c.samplesLoaded ? 'Reload samples' : 'Load samples')),
             ),
+            OutlinedButton.icon(
+              key: const Key('download-samples-csv'),
+              onPressed: busy ? null : onDownload,
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: const Text('Samples CSV'),
+            ),
           ],
         ),
         if (c.samplesLoaded) ...[
@@ -1028,7 +1120,7 @@ class _SamplesSection extends StatelessWidget {
             c.rows.isEmpty
                 ? 'This session has no stored samples.'
                 : 'Showing the first ${c.rows.length} of ${c.samplesTotal ?? c.rows.length} samples. '
-                    'Replay comes in a later step.',
+                    'The Replay button plays them back; Samples CSV has all of them.',
             key: const Key('samples-note'),
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

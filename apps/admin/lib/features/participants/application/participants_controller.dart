@@ -55,14 +55,25 @@ class ParticipantDetailController extends SafeChangeNotifier {
   ParticipantRecord _record;
   bool _loading = false;
   bool _revealing = false;
+  bool _deleting = false;
+  int _dataVersion = 0;
   String? _error;
+  String? _notice;
   String? _identityEmail;
   String? _identityMessage;
 
   ParticipantRecord get record => _record;
   bool get loading => _loading;
   bool get revealing => _revealing;
+  bool get deleting => _deleting;
   String? get error => _error;
+
+  /// Counts completed deletions; sections that hold their own data (the
+  /// assignments) reload when it changes.
+  int get dataVersion => _dataVersion;
+
+  /// A confirmation, for example after the research data was deleted.
+  String? get notice => _notice;
 
   /// The revealed login email, once fetched.
   String? get identityEmail => _identityEmail;
@@ -113,6 +124,53 @@ class ParticipantDetailController extends SafeChangeNotifier {
 
   void dismissError() {
     _error = null;
+    notifyListeners();
+  }
+
+  /// Deletes this participant's research data. [confirm] is what the
+  /// researcher typed and must be exactly the research code.
+  Future<bool> deleteData(String confirm) async {
+    final code = _record.code;
+    if (_deleting) return false;
+    if (confirm.trim() != code) {
+      _error = 'Type the research code $code exactly to delete the data.';
+      notifyListeners();
+      return false;
+    }
+    _deleting = true;
+    _error = null;
+    _notice = null;
+    notifyListeners();
+    try {
+      final result = await _repository.deleteData(studyId, code, code);
+      // The account and the code stay; what remains is an empty record.
+      _record = await _repository.get(studyId, code);
+      _identityEmail = null;
+      _identityMessage = null;
+      _dataVersion++;
+      _notice = _deletedText(code, result);
+      return true;
+    } catch (e) {
+      _error = userMessage(e);
+      return false;
+    } finally {
+      _deleting = false;
+      notifyListeners();
+    }
+  }
+
+  static String _deletedText(String code, EraseResult result) {
+    final parts = [
+      for (final e in result.deleted.entries)
+        if (e.value > 0) '${e.value} ${e.key}',
+    ];
+    return 'The research data of $code was deleted'
+        '${parts.isEmpty ? '' : ' (${parts.join(', ')})'}. '
+        'The account and the research code remain.';
+  }
+
+  void dismissNotice() {
+    _notice = null;
     notifyListeners();
   }
 }

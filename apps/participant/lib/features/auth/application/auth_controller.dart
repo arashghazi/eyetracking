@@ -14,11 +14,16 @@ class AuthController extends SafeChangeNotifier {
   AuthSession? _session;
   bool _busy = false;
   String? _error;
+  String? _notice;
 
   AuthSession? get session => _session;
   bool get isSignedIn => _session != null;
   bool get busy => _busy;
   String? get error => _error;
+
+  /// A message for the sign-in screen that is not an error, for example the
+  /// farewell after the participant erased their data.
+  String? get notice => _notice;
 
   Future<bool> signIn(String email, String password) => _run(
         () => _repository.signIn(email: email.trim(), password: password),
@@ -43,6 +48,16 @@ class AuthController extends SafeChangeNotifier {
     notifyListeners();
   }
 
+  /// Signs out and leaves [message] on the sign-in screen (the account was
+  /// closed, so there is nothing to sign in to any more).
+  void signOutWithNotice(String message) {
+    _repository.signOut();
+    _session = null;
+    _error = null;
+    _notice = message;
+    notifyListeners();
+  }
+
   /// The server rejected our token: return to sign-in with an explanation.
   void expire() {
     if (_session == null) return;
@@ -58,9 +73,16 @@ class AuthController extends SafeChangeNotifier {
     notifyListeners();
   }
 
+  void dismissNotice() {
+    if (_notice == null) return;
+    _notice = null;
+    notifyListeners();
+  }
+
   Future<bool> _run(Future<AuthSession> Function() action) async {
     _busy = true;
     _error = null;
+    _notice = null;
     notifyListeners();
     try {
       final session = await action();

@@ -28,4 +28,15 @@ class ApiParticipantsRepository implements ParticipantsRepository {
     );
     return json['email'] as String? ?? '';
   }
+
+  @override
+  Future<EraseResult> deleteData(int studyId, String code, String confirm) async {
+    final answer = await _api.delete(
+      '/studies/$studyId/participants/${Uri.encodeComponent(code)}/data',
+      {'confirm': confirm},
+    );
+    return answer is Map<String, dynamic>
+        ? EraseResult.fromJson(answer)
+        : const EraseResult();
+  }
 }

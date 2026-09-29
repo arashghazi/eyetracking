@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import 'video_stage_config.dart';
+import 'video_stage_controller.dart';
 
 /// Plays one segment in a browser `<video>` element (`object-fit: contain`)
 /// placed with [HtmlElementView], like the camera preview. It reports the
@@ -22,7 +23,7 @@ class VideoStage extends StatefulWidget {
   State<VideoStage> createState() => _VideoStageState();
 }
 
-class _VideoStageState extends State<VideoStage> {
+class _VideoStageState extends State<VideoStage> implements VideoStagePlayer {
   /// A video that shows no picture within this time counts as not ready.
   static const _startTimeout = Duration(seconds: 20);
 
@@ -40,11 +41,35 @@ class _VideoStageState extends State<VideoStage> {
   @override
   void didUpdateWidget(VideoStage old) {
     super.didUpdateWidget(old);
+    if (!identical(old.config.controller, widget.config.controller)) {
+      old.config.controller?.detach(this);
+      widget.config.controller?.attach(this);
+    }
     if (old.config.url != widget.config.url) _load();
+  }
+
+  // The remote control of the replay (seek, play, pause, speed).
+  @override
+  void seek(double seconds) {
+    final video = _video;
+    if (video != null && seconds.isFinite) video.currentTime = seconds;
+  }
+
+  @override
+  void play() => _play(quiet: true);
+
+  @override
+  void pause() => _video?.pause();
+
+  @override
+  void setRate(double rate) {
+    final video = _video;
+    if (video != null && rate > 0) video.playbackRate = rate;
   }
 
   @override
   void dispose() {
+    widget.config.controller?.detach(this);
     _watchdog?.cancel();
     final video = _video;
     if (video != null) {
@@ -73,6 +98,7 @@ class _VideoStageState extends State<VideoStage> {
     video.addEventListener('error', _onError);
     video.addEventListener('loadedmetadata', _onMeta);
     video.addEventListener('playing', _onPlaying);
+    widget.config.controller?.attach(this);
     _load();
   }
 
@@ -85,6 +111,11 @@ class _VideoStageState extends State<VideoStage> {
     _loadedUrl = widget.config.url;
     video.src = widget.config.url;
     video.load();
+    if (!widget.config.autoplay) {
+      // A remote-controlled player waits for its controller; it is ready
+      // when the metadata is in (see [_handleMetadata]).
+      return;
+    }
     _watchdog = Timer(_startTimeout, () {
       if (!mounted) return;
       widget.config.onError?.call('The video did not start in time.');
@@ -92,12 +123,12 @@ class _VideoStageState extends State<VideoStage> {
     _play();
   }
 
-  void _play() {
+  void _play({bool quiet = false}) {
     final video = _video;
     if (video == null) return;
     video.play().toDart.then((_) {}, onError: (Object e) {
       // Browsers may refuse to start with sound until the person taps.
-      if (!mounted || _loadedUrl != widget.config.url) return;
+      if (quiet || !mounted || _loadedUrl != widget.config.url) return;
       if (e.toString().contains('NotAllowed')) {
         _watchdog?.cancel();
         setState(() => _needsTap = true);
@@ -124,6 +155,7 @@ class _VideoStageState extends State<VideoStage> {
             video.videoHeight.toDouble(),
           ));
     }
+    widget.config.controller?.applyPending();
   }
 
   void _handlePlaying() {

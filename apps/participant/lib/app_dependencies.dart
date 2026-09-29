@@ -5,6 +5,7 @@ import 'features/auth/application/auth_controller.dart';
 import 'features/consent/domain/consent_repository.dart';
 import 'features/data_export/domain/data_export_repository.dart';
 import 'features/demographics/domain/demographics_repository.dart';
+import 'features/erase/domain/erase_repository.dart';
 import 'features/home/domain/home_repository.dart';
 import 'features/profile/domain/profile_repository.dart';
 import 'features/session/domain/session_repository.dart';
@@ -24,6 +25,8 @@ class AppDependencies {
     required this.device,
     required this.assignments,
     required this.videoStage,
+    required this.erase,
+    required this.saveFile,
     this.initialInvitationToken = '',
   });
 
@@ -42,6 +45,12 @@ class AppDependencies {
   /// Builds the widget that plays a video segment (a `<video>` element in the
   /// browser, a fake in tests).
   final VideoStageBuilder videoStage;
+
+  /// Step 4: withdraw and delete the participant's data.
+  final EraseRepository erase;
+
+  /// Hands a downloaded file to the browser (a recording fake in tests).
+  final FileSaver saveFile;
 
   /// Invitation code taken from the page address, if any.
   final String initialInvitationToken;

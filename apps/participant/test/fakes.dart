@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:eyetracking_core/testing.dart';
 import 'package:participant_app/app_dependencies.dart';
@@ -8,6 +10,7 @@ import 'package:participant_app/features/auth/domain/auth_session.dart';
 import 'package:participant_app/features/consent/domain/consent_repository.dart';
 import 'package:participant_app/features/data_export/domain/data_export_repository.dart';
 import 'package:participant_app/features/demographics/domain/demographics_repository.dart';
+import 'package:participant_app/features/erase/domain/erase_repository.dart';
 import 'package:participant_app/features/home/domain/home_repository.dart';
 import 'package:participant_app/features/home/domain/participant_overview.dart';
 import 'package:participant_app/features/profile/domain/profile_repository.dart';
@@ -55,9 +58,13 @@ class FakeHomeRepository implements HomeRepository {
         );
 
   ParticipantOverview overview;
+  int loads = 0;
 
   @override
-  Future<ParticipantOverview> loadOverview() async => overview;
+  Future<ParticipantOverview> loadOverview() async {
+    loads++;
+    return overview;
+  }
 }
 
 const sampleSheet = InformationSheet(
@@ -156,11 +163,79 @@ class FakeDemographicsRepository implements DemographicsRepository {
 }
 
 class FakeDataExportRepository implements DataExportRepository {
+  FakeDataExportRepository({Object? data}) : data = data ?? sampleMyData;
+
+  Object? data;
+  ApiException? failure;
+  int fetches = 0;
+
   @override
-  Future<Object?> fetchMyData() async => {
-        'participant': {'code': 'P-0001'},
-        'consents': <Object?>[],
-      };
+  Future<Object?> fetchMyData() async {
+    fetches++;
+    if (failure != null) throw failure!;
+    return data;
+  }
+}
+
+/// What `/me/data` holds: two sessions with samples and events, two consents.
+final Map<String, Object?> sampleMyData = {
+  'participant': {'code': 'P-0001'},
+  'consents': [
+    {'sheet_version': 1, 'participate': true},
+    {'sheet_version': 2, 'participate': true},
+  ],
+  'sessions': [
+    {
+      'summary': {'id': 1, 'status': 'ended'},
+      'samples': [
+        for (var i = 0; i < 5; i++) [i * 100, 700.0 + i, 300.0, 0.9, 2],
+      ],
+      'events': [
+        {'t_ms': 0, 'type': 'segment_start', 'payload': {'segment': 'baseline'}},
+        {'t_ms': 500, 'type': 'end', 'payload': {'reason': 'completed'}},
+      ],
+    },
+    {
+      'summary': {'id': 2, 'status': 'ended'},
+      'samples': [
+        for (var i = 0; i < 3; i++) [i * 100, null, null, 0.1, 4],
+      ],
+      'events': [
+        {'t_ms': 0, 'type': 'segment_start', 'payload': {'segment': 'baseline'}},
+      ],
+    },
+  ],
+  'export_version': 2,
+};
+
+class FakeEraseRepository implements EraseRepository {
+  ApiException? failure;
+  String policy = RetentionPolicy.deleteAll;
+  final List<String> confirmations = [];
+
+  @override
+  Future<EraseResult> eraseMyData(String confirm) async {
+    confirmations.add(confirm);
+    if (failure != null) throw failure!;
+    return EraseResult(
+      policy: policy,
+      deleted: const {'sessions': 2, 'samples': 8},
+      identityRemoved: true,
+    );
+  }
+}
+
+/// Remembers what was handed to the browser as a download.
+class RecordingFileSaver {
+  RecordingFileSaver({this.succeeds = true});
+
+  final bool succeeds;
+  final List<({String name, String type, Uint8List bytes})> saved = [];
+
+  Future<bool> call(Uint8List bytes, String filename, String mimeType) async {
+    if (succeeds) saved.add((name: filename, type: mimeType, bytes: bytes));
+    return succeeds;
+  }
 }
 
 const sampleForm = DemographicsForm(version: 2, fields: [
@@ -241,14 +316,19 @@ class TestBed {
     FakeSessionRepository? sessions,
     FakeAssignmentsRepository? assignments,
     VideoStageBuilder? videoStage,
+    FakeDataExportRepository? dataExport,
+    FakeEraseRepository? erase,
+    bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
+        erase = erase ?? FakeEraseRepository(),
+        saver = RecordingFileSaver(succeeds: canSaveFiles),
         assignments = assignments ?? FakeAssignmentsRepository(),
         videoStage = videoStage ?? FakeVideoStage.builder(),
         home = home ?? FakeHomeRepository(),
         consent = consent ?? FakeConsentRepository(),
         profile = profile ?? FakeProfileRepository(),
         demographics = demographics ?? FakeDemographicsRepository(form: sampleForm),
-        dataExport = FakeDataExportRepository(),
+        dataExport = dataExport ?? FakeDataExportRepository(),
         sessions = sessions ?? FakeSessionRepository(),
         gaze = FakeGazeEstimator(),
         frameSource = FakeFrameSource() {
@@ -262,6 +342,10 @@ class TestBed {
   final FakeProfileRepository profile;
   final FakeDemographicsRepository demographics;
   final FakeDataExportRepository dataExport;
+  final FakeEraseRepository erase;
+
+  /// What the downloads handed to the browser.
+  final RecordingFileSaver saver;
   final FakeSessionRepository sessions;
   final FakeAssignmentsRepository assignments;
   final VideoStageBuilder videoStage;
@@ -281,5 +365,7 @@ class TestBed {
         device: const DeviceInfo(platform: 'web', userAgent: 'test-agent'),
         assignments: assignments,
         videoStage: videoStage,
+        erase: erase,
+        saveFile: saver.call,
       );
 }

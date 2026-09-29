@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:eyetracking_core/eyetracking_core.dart';
 
+import '../domain/media_key.dart';
 import '../domain/session_repository.dart';
 import 'segment_recorder.dart';
 
@@ -77,6 +78,7 @@ class InterestPracticeController extends SafeChangeNotifier {
 
   Box? _videoRect;
   bool _videoStarted = false;
+  bool _mediaStartSent = false;
   bool _segmentOpen = false;
   String? _videoProblem;
   int _videoAttempt = 0;
@@ -167,6 +169,7 @@ class InterestPracticeController extends SafeChangeNotifier {
     _videoStarted = false;
     // A segment whose file was never uploaded has no URL to play.
     _videoProblem = seg.mediaUrl.isEmpty ? 'The video is not ready' : null;
+    _mediaStartSent = false;
     _error = null;
     _videoAttempt++;
     if (_part == InterestPart.conversation) _lastConversationSegment = seg.id;
@@ -179,7 +182,32 @@ class InterestPracticeController extends SafeChangeNotifier {
   void onVideoPlaying() {
     if (_phase != InterestPhase.playing) return;
     _videoStarted = true;
+    _announceMediaStart();
     unawaited(_openIfReady());
+  }
+
+  /// Tells the service that a clip started, once per play, so the researcher's
+  /// replay can line the video up with the gaze. A failure here never stops
+  /// the practice: it only costs the replay its video.
+  void _announceMediaStart() {
+    final seg = _segment;
+    if (_mediaStartSent || seg == null) return;
+    _mediaStartSent = true;
+    unawaited(_repo
+        .postEvent(
+          sessionId,
+          SessionEventType.mediaStart,
+          tMs: _recorder.nowMs,
+          payload: {
+            'segment_id': seg.id,
+            // The service's own key when it names one, else what the link
+            // shows, else the segment id.
+            'media_key': (seg.mediaKey != null && seg.mediaKey!.isNotEmpty)
+                ? seg.mediaKey
+                : mediaKeyFromUrl(seg.mediaUrl, seg.id),
+          },
+        )
+        .then<void>((_) {}, onError: (Object _) {}));
   }
 
   /// The rectangle where the video is drawn changed (also the first time it

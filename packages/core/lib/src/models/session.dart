@@ -2,6 +2,7 @@ import 'gaze.dart';
 import 'layout.dart';
 import 'practice.dart';
 import 'protocol.dart';
+import 'quality.dart';
 
 double? _d(Object? v) => (v as num?)?.toDouble();
 int _i(Object? v) => (v as num?)?.toInt() ?? 0;
@@ -73,6 +74,9 @@ enum SessionEventType {
   faceLost('face_lost'),
   faceFound('face_found'),
   comfortAnswer('comfort_answer'),
+
+  /// A stimulus video started (payload `{segment_id, media_key}`).
+  mediaStart('media_start'),
   note('note');
 
   const SessionEventType(this.wire);
@@ -518,6 +522,7 @@ class SessionSummary {
     this.protocol,
     this.outcomes,
     this.stages = const [],
+    this.quality,
   });
 
   final String id;
@@ -548,6 +553,10 @@ class SessionSummary {
   /// Gaze, comprehension or number task, comfort and improvement.
   final SessionOutcomes? outcomes;
   final List<StageRecord> stages;
+
+  /// Step 4: server-side quality control (grade and reasons); null when the
+  /// server did not send one.
+  final SessionQuality? quality;
 
   bool get isEnded => status == SessionStatus.ended;
 
@@ -581,6 +590,7 @@ class SessionSummary {
         for (final s in (json['stages'] as List<dynamic>? ?? const []))
           StageRecord.fromJson(s as Map<String, dynamic>),
       ],
+      quality: SessionQuality.maybeFromJson(json['quality']),
     );
   }
 }

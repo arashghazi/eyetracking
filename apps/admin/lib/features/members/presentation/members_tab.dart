@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app_scope.dart';
 import '../application/members_controller.dart';
+import '../../studies/presentation/study_settings_card.dart';
 import '../domain/members_repository.dart';
 
 /// Administrator tools: add a member to this study and create staff accounts.
@@ -95,6 +96,8 @@ class _MembersTabState extends State<MembersTab>
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
+            const SizedBox(height: 12),
+            StudySettingsCard(studyId: widget.studyId),
             const SizedBox(height: 12),
             Card(
               child: Padding(

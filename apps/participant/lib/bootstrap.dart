@@ -9,6 +9,7 @@ import 'features/auth/data/api_auth_repository.dart';
 import 'features/consent/data/api_consent_repository.dart';
 import 'features/data_export/data/api_data_export_repository.dart';
 import 'features/demographics/data/api_demographics_repository.dart';
+import 'features/erase/data/api_erase_repository.dart';
 import 'features/home/data/api_home_repository.dart';
 import 'features/profile/data/api_profile_repository.dart';
 import 'features/session/data/api_session_repository.dart';
@@ -40,6 +41,8 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     device: currentDeviceInfo(),
     assignments: ApiAssignmentsRepository(api),
     videoStage: (context, config) => VideoStage(config: config),
+    erase: ApiEraseRepository(api),
+    saveFile: saveFile,
     initialInvitationToken: Uri.base.queryParameters['invitation'] ?? '',
   );
 }

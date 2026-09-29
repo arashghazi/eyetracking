@@ -72,6 +72,9 @@ const failedValidation = ValidationResult(
 class FakeSessionRepository implements SessionRepository {
   MeasurementSettings settings = MeasurementSettings.defaults;
   ApiException? createFailure;
+
+  /// Thrown by every event post when set.
+  ApiException? eventFailure;
   Readiness readinessValue = const Readiness(
     ready: false,
     reasons: [
@@ -205,6 +208,7 @@ class FakeSessionRepository implements SessionRepository {
     Map<String, dynamic>? payload,
   }) async {
     calls.add('event:${type.wire}');
+    if (eventFailure != null) throw eventFailure!;
     events.add(RecordedEvent(type, tMs, payload));
     return _summary(SessionStatus.running);
   }

@@ -142,6 +142,7 @@ class _SessionsTable extends StatelessWidget {
                 DataColumn(label: Text('Participant')),
                 DataColumn(label: Text('Created')),
                 DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Quality')),
                 DataColumn(label: Text('Estimator')),
                 DataColumn(label: Text('Calibration'), numeric: true),
                 DataColumn(label: Text('Validation')),
@@ -164,6 +165,7 @@ class _SessionsTable extends StatelessWidget {
                       )),
                       DataCell(Text(formatTimestamp(s.createdAt))),
                       DataCell(Text(sessionStatusLabel(s.status))),
+                      DataCell(QualityBadge(quality: s.quality)),
                       DataCell(SyntheticBadge(synthetic: s.synthetic)),
                       DataCell(Text(s.calibrationResidualPx == null
                           ? '—'

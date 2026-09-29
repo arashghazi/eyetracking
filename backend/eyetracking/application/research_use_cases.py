@@ -77,10 +77,13 @@ def replay(uow: ResearchUnitOfWork, signer: MediaSigner, principal: Principal, s
         a = uow.assignments.get(s.assignment_id)
         content = uow.content.get(a.content_id) if a and a.content_id else None
         by_key = {m.key: m for m in uow.media.list_for_content(content.id or 0)} if content else {}
+        key_of_segment = {seg["id"]: seg.get("media_key") for seg in (content.definition.get("segments", []) if content else [])}
         for e in events:
             if e.type == "media_start":
-                m = by_key.get(str(e.payload.get("media_key", "")))
-                media.append({"segment_id": e.payload.get("segment_id"), "media_key": e.payload.get("media_key"), "start_ms": e.t_ms, "url": f"/media/{signer.sign(m.id or 0)}" if m else None})
+                segment_id = e.payload.get("segment_id")
+                key = str(e.payload.get("media_key") or "") or key_of_segment.get(segment_id) or ""
+                m = by_key.get(key) or by_key.get(key_of_segment.get(segment_id) or "")
+                media.append({"segment_id": segment_id, "media_key": m.key if m else key or None, "start_ms": e.t_ms, "url": f"/media/{signer.sign(m.id or 0)}" if m else None})
     log_access(uow, principal, study_id, "replay", {"session_id": sid})
     uow.commit()
     return {
@@ -379,7 +382,9 @@ def delete_participant_data(uow: ResearchUnitOfWork, principal: Principal, study
 
 
 def get_study(uow: ResearchUnitOfWork, principal: Principal, study_id: int) -> dict:
-    require_study_access(principal, study_id)
+    """Admins manage studies, so they may read the study record without being members."""
+    if principal.role is not Role.admin:
+        require_study_access(principal, study_id)
     st = uow.studies.get(study_id)
     if st is None:
         raise NotFound("study not found")

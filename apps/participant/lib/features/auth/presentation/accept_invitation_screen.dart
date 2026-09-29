@@ -56,6 +56,15 @@ class _AcceptInvitationScreenState extends State<AcceptInvitationScreen> {
           subtitle: 'Enter the invitation code you were given and choose the '
               'email address and password you will sign in with.',
           children: [
+            if (auth.notice != null) ...[
+              MessageBanner(
+                key: const Key('auth-notice'),
+                message: auth.notice!,
+                kind: BannerKind.success,
+                onDismiss: auth.dismissNotice,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (auth.error != null) ...[
               MessageBanner(message: auth.error!, onDismiss: auth.dismissError),
               const SizedBox(height: 12),

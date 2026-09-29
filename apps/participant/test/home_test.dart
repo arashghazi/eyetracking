@@ -67,7 +67,7 @@ void main() {
     expect(find.text('You are ready to start'), findsOneWidget);
   });
 
-  testWidgets('Download my data shows the JSON in a monospace view',
+  testWidgets('Download my data opens the download screen with the counts',
       (tester) async {
     useWindow(tester, 800, 1000);
     await pumpApp(tester, TestBed());
@@ -75,9 +75,9 @@ void main() {
     await tester.tap(find.byKey(const Key('download-data')));
     await tester.pumpAndSettle();
 
-    final json = tester.widget<SelectableText>(find.byKey(const Key('data-json')));
-    expect(json.data, contains('"code": "P-0001"'));
-    expect(json.style?.fontFamily, 'monospace');
+    expect(find.text('Download my data'), findsWidgets);
+    expect(find.byKey(const Key('download-json')), findsOneWidget);
+    expect(find.text('Gaze samples'), findsOneWidget);
   });
 
   testWidgets('a failing home load shows a banner and a retry', (tester) async {

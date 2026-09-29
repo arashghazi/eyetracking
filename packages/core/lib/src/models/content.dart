@@ -319,9 +319,14 @@ class PersonalizedSegment {
     this.durationS = 0,
     this.faceLayout,
     this.question,
+    this.mediaKey,
   });
 
   final String id;
+
+  /// The key of the media file, when the service names it (`media_key`).
+  /// The signed link alone does not carry it.
+  final String? mediaKey;
 
   /// Already personalized; shown as a caption only when the participant
   /// asked for captions.
@@ -341,6 +346,7 @@ class PersonalizedSegment {
         durationS: _d(json['duration_s'], 0),
         faceLayout: NormalizedFaceLayout.maybeFromJson(json['face_layout']),
         question: PersonalizedQuestion.maybeFromJson(json['question']),
+        mediaKey: json['media_key']?.toString(),
       );
 }
 

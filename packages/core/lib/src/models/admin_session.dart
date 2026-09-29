@@ -1,5 +1,6 @@
 import 'layout.dart';
 import 'practice.dart';
+import 'quality.dart';
 import 'session.dart';
 
 /// One row of the researcher's session table.
@@ -16,6 +17,7 @@ class SessionListItem {
     this.validationPassed,
     this.coverage = const Coverage(),
     this.eyeRegionAttention = const EyeRegionAttention(),
+    this.quality,
   });
 
   final String id;
@@ -32,6 +34,9 @@ class SessionListItem {
   final Coverage coverage;
   final EyeRegionAttention eyeRegionAttention;
 
+  /// Step 4: quality grade with reasons; null when the server sent none.
+  final SessionQuality? quality;
+
   factory SessionListItem.fromJson(Map<String, dynamic> json) =>
       SessionListItem(
         id: json['id']?.toString() ?? '',
@@ -47,6 +52,7 @@ class SessionListItem {
         coverage: Coverage.fromJson(json['coverage']),
         eyeRegionAttention:
             EyeRegionAttention.fromJson(json['eye_region_attention']),
+        quality: SessionQuality.maybeFromJson(json['quality']),
       );
 }
 

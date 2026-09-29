@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../models/content.dart';
 import '../models/layout.dart';
+import 'video_stage_controller.dart';
 
 /// What a video stage needs to know: which video to play and whom to tell
 /// what happened. Shared by the browser widget and the test double so the
@@ -13,6 +14,8 @@ class VideoStageConfig {
     this.onError,
     this.onRect,
     this.onPlaying,
+    this.controller,
+    this.autoplay = true,
   });
 
   /// Signed media URL, used exactly as the server gave it.
@@ -30,6 +33,14 @@ class VideoStageConfig {
 
   /// Playback started.
   final VoidCallback? onPlaying;
+
+  /// Remote control for seeking, pausing and changing the speed (used by
+  /// the researcher's replay); null for a plain player.
+  final VideoStageController? controller;
+
+  /// Start playing as soon as the video loads. The participant's clips do;
+  /// the replay waits for its play button.
+  final bool autoplay;
 }
 
 /// Builds the widget that plays one video segment.

@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:eyetracking_core/eyetracking_core.dart';
+import 'package:eyetracking_core/testing.dart';
 import 'package:research_admin/app_dependencies.dart';
+import 'package:research_admin/features/access_log/domain/access_log_repository.dart';
+import 'package:research_admin/features/analysis/domain/analysis_filters.dart';
+import 'package:research_admin/features/analysis/domain/analysis_repository.dart';
 import 'package:research_admin/features/assignments/domain/assignments_repository.dart';
 import 'package:research_admin/features/auth/application/auth_controller.dart';
 import 'package:research_admin/features/auth/domain/auth_repository.dart';
@@ -10,6 +14,7 @@ import 'package:research_admin/features/auth/domain/auth_session.dart';
 import 'package:research_admin/features/content/domain/content_repository.dart';
 import 'package:research_admin/features/content/domain/media_picker.dart';
 import 'package:research_admin/features/demographics_form/domain/demographics_form_repository.dart';
+import 'package:research_admin/features/exports/domain/exports_repository.dart';
 import 'package:research_admin/features/information_sheet/domain/information_sheet_repository.dart';
 import 'package:research_admin/features/invitations/domain/invitation.dart';
 import 'package:research_admin/features/invitations/domain/invitations_repository.dart';
@@ -17,6 +22,7 @@ import 'package:research_admin/features/measurement_settings/domain/measurement_
 import 'package:research_admin/features/members/domain/members_repository.dart';
 import 'package:research_admin/features/participants/domain/participants_repository.dart';
 import 'package:research_admin/features/protocols/domain/protocols_repository.dart';
+import 'package:research_admin/features/replay/domain/replay_repository.dart';
 import 'package:research_admin/features/sessions/domain/sessions_repository.dart';
 import 'package:research_admin/features/studies/domain/studies_repository.dart';
 import 'package:research_admin/features/studies/domain/study.dart';
@@ -45,9 +51,29 @@ class FakeStudiesRepository implements StudiesRepository {
     const Study(id: 2, name: 'Second study'),
   ];
   final List<String> created = [];
+  final List<({int id, String policy})> policyChanges = [];
+  ApiException? policyFailure;
+
+  /// Thrown by [get] when set (a 403 for an admin who is not a member).
+  ApiException? getFailure;
 
   @override
   Future<List<Study>> list() async => List.of(studies);
+
+  @override
+  Future<Study> get(int studyId) async {
+    if (getFailure != null) throw getFailure!;
+    return studies.firstWhere((s) => s.id == studyId);
+  }
+
+  @override
+  Future<Study> setRetentionPolicy(int studyId, String policy) async {
+    if (policyFailure != null) throw policyFailure!;
+    policyChanges.add((id: studyId, policy: policy));
+    final next = studies.firstWhere((s) => s.id == studyId).copyWith(retentionPolicy: policy);
+    studies[studies.indexWhere((s) => s.id == studyId)] = next;
+    return next;
+  }
 
   @override
   Future<Study> create(String name) async {
@@ -99,6 +125,8 @@ class FakeParticipantsRepository implements ParticipantsRepository {
   List<ParticipantRecord> records = [readyRecord, waitingRecord, withdrawnRecord];
   ApiException? identityFailure;
   final List<String> identityRequests = [];
+  ApiException? deleteFailure;
+  final List<({String code, String confirm})> deletions = [];
 
   @override
   Future<List<ParticipantRecord>> list(int studyId) async => records;
@@ -112,6 +140,27 @@ class FakeParticipantsRepository implements ParticipantsRepository {
     identityRequests.add(code);
     if (identityFailure != null) throw identityFailure!;
     return 'sam@example.org';
+  }
+
+  @override
+  Future<EraseResult> deleteData(int studyId, String code, String confirm) async {
+    if (deleteFailure != null) throw deleteFailure!;
+    deletions.add((code: code, confirm: confirm));
+    // What is left is an empty record: no consent, profile or demographics.
+    records = [
+      for (final r in records)
+        if (r.code == code)
+          ParticipantRecord(
+            code: code,
+            readiness: const Readiness(ready: false, reasons: [
+              ReadinessReason.consentMissingOrOutdated,
+              ReadinessReason.demographicsIncomplete,
+            ]),
+          )
+        else
+          r,
+    ];
+    return const EraseResult(deleted: {'sessions': 2, 'samples': 900});
   }
 }
 
@@ -228,6 +277,10 @@ const sessionItems = [
       evaluable: false,
       reason: 'Estimator is synthetic.',
     ),
+    quality: SessionQuality(
+      grade: QualityGrade.exclude,
+      reasons: ['synthetic_estimator', 'validation_not_passed'],
+    ),
   ),
   SessionListItem(
     id: '22',
@@ -235,6 +288,10 @@ const sessionItems = [
     status: SessionStatus.calibrated,
     createdAt: '2026-09-30T09:30:00',
     calibrationResidualPx: 52,
+    quality: SessionQuality(
+      grade: QualityGrade.review,
+      reasons: ['ended_early', 'uncertain_share_above_0.2'],
+    ),
   ),
   SessionListItem(
     id: '23',
@@ -250,6 +307,7 @@ const sessionItems = [
       missingMs: 500,
     ),
     eyeRegionAttention: EyeRegionAttention(evaluable: true, share: 0.43),
+    quality: SessionQuality(grade: QualityGrade.ok),
   ),
 ];
 
@@ -324,6 +382,10 @@ const sessionDetailJson = <String, dynamic>{
   'segments': [
     {'label': 'baseline', 'started_ms': 4000, 'ended_ms': 34000},
   ],
+  'quality': {
+    'grade': 'exclude',
+    'reasons': ['synthetic_estimator', 'validation_not_passed'],
+  },
   'events_count': 3,
   'events': [
     {
@@ -1001,12 +1063,23 @@ class TestBed {
     FakeContentRepository? content,
     FakeAssignmentsRepository? assignments,
     FakeMediaPicker? mediaPicker,
+    FakeReplayRepository? replay,
+    FakeAnalysisRepository? analysis,
+    FakeExportsRepository? exports,
+    FakeAccessLogRepository? accessLog,
+    FakeStudiesRepository? studies,
+    bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
+        replay = replay ?? FakeReplayRepository(),
+        analysis = analysis ?? FakeAnalysisRepository(),
+        exports = exports ?? FakeExportsRepository(),
+        accessLog = accessLog ?? FakeAccessLogRepository(),
+        saver = RecordingFileSaver(succeeds: canSaveFiles),
         protocols = protocols ?? FakeProtocolsRepository(),
         content = content ?? FakeContentRepository(),
         assignments = assignments ?? FakeAssignmentsRepository(),
         mediaPicker = mediaPicker ?? FakeMediaPicker(),
-        studies = FakeStudiesRepository(),
+        studies = studies ?? FakeStudiesRepository(),
         participants = participants ?? FakeParticipantsRepository(),
         invitations = FakeInvitationsRepository(),
         informationSheet = informationSheet ?? FakeInformationSheetRepository(),
@@ -1032,6 +1105,16 @@ class TestBed {
   final FakeContentRepository content;
   final FakeAssignmentsRepository assignments;
   final FakeMediaPicker mediaPicker;
+  final FakeReplayRepository replay;
+  final FakeAnalysisRepository analysis;
+  final FakeExportsRepository exports;
+  final FakeAccessLogRepository accessLog;
+
+  /// What the downloads handed to the browser.
+  final RecordingFileSaver saver;
+
+  /// What the replay asked of the stimulus video.
+  final RecordingVideoPlayer videoPlayer = RecordingVideoPlayer();
 
   AppDependencies get dependencies => AppDependencies(
         auth: auth,
@@ -1047,5 +1130,326 @@ class TestBed {
         content: content,
         assignments: assignments,
         mediaPicker: mediaPicker,
+        replay: replay,
+        analysis: analysis,
+        exports: exports,
+        accessLog: accessLog,
+        videoStage: FakeVideoStage.builder(player: videoPlayer),
+        saveFile: saver.call,
       );
+}
+
+
+// ------------------------------------------------------------------ step 4
+
+/// Remembers what was handed to the browser as a download.
+class RecordingFileSaver {
+  RecordingFileSaver({this.succeeds = true});
+
+  final bool succeeds;
+  final List<({String name, String type, Uint8List bytes})> saved = [];
+
+  Future<bool> call(Uint8List bytes, String filename, String mimeType) async {
+    if (succeeds) saved.add((name: filename, type: mimeType, bytes: bytes));
+    return succeeds;
+  }
+}
+
+const _layout = {
+  'screen': {'w': 1440, 'h': 900, 'dpr': 1},
+  'face_box': [500, 100, 440, 600],
+  'eye_region': [520, 220, 400, 120],
+  'mouth_region': [560, 480, 320, 100],
+};
+
+/// A replay of 30 s: baseline 1-11 s, practice 12-30 s with two trials, a
+/// gap, a pause, and a stimulus clip from 12 s.
+Map<String, dynamic> sampleReplayJson({bool withMedia = true}) => {
+      'session': {
+        'id': 21,
+        'participant_code': 'P-001',
+        'status': 'ended',
+        'created_at': '2026-09-29T08:00:00',
+        'synthetic': true,
+        'quality': {
+          'grade': 'review',
+          'reasons': ['validation_not_passed', 'uncertain_share_above_0.2'],
+        },
+        'protocol': {'name': 'Faces v1', 'version': 2, 'path': 'gradual_face'},
+      },
+      'screen': {'w': 1440, 'h': 900, 'dpr': 1},
+      'segments': [
+        {'label': 'baseline', 'started_ms': 1000, 'ended_ms': 11000},
+        {'label': 'practice', 'started_ms': 12000, 'ended_ms': 30000},
+      ],
+      'layouts': [
+        {'id': 1, 'segment': 'baseline', 'stage_index': null, 'layout': _layout, 'from_ms': 1000, 'to_ms': 9000},
+        {'id': 2, 'segment': 'practice', 'stage_index': 0, 'layout': _layout, 'from_ms': 12000, 'to_ms': 30000},
+      ],
+      'samples': [
+        for (var t = 1000; t <= 9000; t += 100)
+          [t, 700.0 + (t - 1000) / 50, 300.0, 0.9, t % 300 == 0 ? 0 : 2],
+        [9100, null, null, 0.1, 4],
+        for (var t = 12000; t <= 30000; t += 100)
+          [t, 720.0, 340.0 + (t - 12000) / 100, 0.8, 1],
+      ],
+      'events': [
+        {'t_ms': 1000, 'type': 'segment_start', 'payload': {'segment': 'baseline'}},
+        {'t_ms': 20500, 'type': 'pause', 'payload': null},
+      ],
+      'trials': [
+        {'stage_index': 0, 'trial_index': 0, 't_ms': 13000, 'number_shown': '42', 'zone': 'outside', 'position': {'x': 200, 'y': 150}, 'face_level': 0, 'response': '42', 'correct': true, 'response_ms': 1500},
+        {'stage_index': 0, 'trial_index': 1, 't_ms': 16000, 'number_shown': '17', 'zone': 'outside', 'position': {'x': 1200, 'y': 700}, 'face_level': 0, 'response': null, 'correct': null, 'response_ms': null},
+      ],
+      'answers': const [],
+      'quality_strip': [
+        for (var i = 0; i < 30; i++)
+          {'from_ms': i * 1000, 'to_ms': (i + 1) * 1000, 'valid_share': i == 10 ? null : (i % 5) / 5 + 0.1},
+      ],
+      'gaps': [
+        {'from_ms': 9200, 'to_ms': 11900},
+      ],
+      'pauses': [
+        {'from_ms': 20500, 'to_ms': 22000},
+      ],
+      'media': withMedia
+          ? [
+              {'segment_id': 's1', 'media_key': 's1.webm', 'start_ms': 12000, 'url': '/media/tok1'},
+              {'segment_id': 's2', 'media_key': 's2.webm', 'start_ms': 22000, 'url': '/media/tok2'},
+            ]
+          : const [],
+    };
+
+class FakeReplayRepository implements ReplayRepository {
+  FakeReplayRepository({Map<String, dynamic>? json}) : json = json ?? sampleReplayJson();
+
+  Map<String, dynamic> json;
+  ApiException? failure;
+  final List<String> loaded = [];
+
+  @override
+  Future<ReplayBundle> load(int studyId, String sessionId) async {
+    if (failure != null) throw failure!;
+    loaded.add('$studyId/$sessionId');
+    return ReplayBundle.fromJson(json);
+  }
+}
+
+/// Two comparable groups, three sessions of P-001 (one not evaluable) and one
+/// of P-002.
+Map<String, dynamic> sampleAnalysisJson() => {
+      'filters': {'include_synthetic': false, 'quality': 'ok,review'},
+      'rows': [
+        {
+          'session_id': 5,
+          'participant_code': 'P-001',
+          'created_at': '2026-09-29T08:00:00',
+          'path': 'gradual_face',
+          'protocol_name': 'Faces v1',
+          'protocol_version': 2,
+          'device_platform': 'web',
+          'estimator': 'l2cs-1',
+          'synthetic': false,
+          'quality': 'ok',
+          'quality_reasons': [],
+          'calibration_residual_px': 41.2,
+          'validation_passed': true,
+          'total_ms': 120000,
+          'classifiable_share': 0.9,
+          'uncertain_share': 0.06,
+          'missing_share': 0.04,
+          'face_share': 0.7,
+          'eye_share': 0.3,
+          'baseline_eye_share': 0.2,
+          'post_eye_share': 0.32,
+          'eye_share_delta': 0.12,
+          'comprehension_share': null,
+          'number_task_share': 0.83,
+          'stages_completed': 3,
+          'comfort_min': 3,
+          'comfort_mean': 4.0,
+          'comfort_low_count': 0,
+          'pauses': 1,
+          'ended_early': false,
+          'improvement': true,
+          'group_key': 'web|2|l2cs-1|400',
+          'demographics': {'age': 34},
+        },
+        {
+          'session_id': 6,
+          'participant_code': 'P-001',
+          'created_at': '2026-10-02T08:00:00',
+          'path': 'gradual_face',
+          'protocol_name': 'Faces v1',
+          'protocol_version': 2,
+          'device_platform': 'web',
+          'estimator': 'l2cs-1',
+          'quality': 'review',
+          'quality_reasons': ['ended_early'],
+          'baseline_eye_share': 0.3,
+          'post_eye_share': 0.24,
+          'eye_share_delta': -0.06,
+          'comfort_mean': 3.0,
+          'ended_early': true,
+          'improvement': false,
+          'group_key': 'web|2|l2cs-1|400',
+        },
+        {
+          'session_id': 7,
+          'participant_code': 'P-001',
+          'created_at': '2026-10-05T08:00:00',
+          'path': 'gradual_face',
+          'device_platform': 'web',
+          'quality': 'review',
+          'quality_reasons': ['validation_not_passed'],
+          'baseline_eye_share': null,
+          'post_eye_share': null,
+          'eye_share_delta': null,
+          'comfort_mean': 4.5,
+          'group_key': 'web|2|l2cs-1|400',
+        },
+        {
+          'session_id': 8,
+          'participant_code': 'P-002',
+          'created_at': '2026-10-06T08:00:00',
+          'path': 'interest_conversation',
+          'device_platform': 'android',
+          'quality': 'ok',
+          'quality_reasons': [],
+          'baseline_eye_share': 0.2,
+          'post_eye_share': 0.2,
+          'eye_share_delta': 0.0,
+          'group_key': 'android|1|l2cs-1|300',
+        },
+      ],
+      'groups': [
+        {'group_key': 'web|2|l2cs-1|400', 'device_platform': 'web', 'protocol_version': 2, 'estimator': 'l2cs-1', 'screen_bucket': '1280x720', 'stimulus_bucket_px': '400px', 'sessions': 3, 'participants': 1},
+        {'group_key': 'android|1|l2cs-1|300', 'device_platform': 'android', 'protocol_version': 1, 'estimator': 'l2cs-1', 'screen_bucket': '360x740', 'stimulus_bucket_px': 300, 'sessions': 1, 'participants': 1},
+      ],
+      'trends': [
+        {
+          'participant_code': 'P-001',
+          'group_key': 'web|2|l2cs-1|400',
+          'points': [
+            {'session_id': 7, 'created_at': '2026-10-05T08:00:00', 'baseline_eye_share': null, 'post_eye_share': null, 'comfort_mean': 4.5, 'quality': 'review'},
+            {'session_id': 5, 'created_at': '2026-09-29T08:00:00', 'baseline_eye_share': 0.2, 'post_eye_share': 0.32, 'comfort_mean': 4.0, 'quality': 'ok'},
+            {'session_id': 6, 'created_at': '2026-10-02T08:00:00', 'baseline_eye_share': 0.3, 'post_eye_share': 0.24, 'comfort_mean': 3.0, 'quality': 'review'},
+          ],
+        },
+        {
+          'participant_code': 'P-002',
+          'group_key': 'android|1|l2cs-1|300',
+          'points': [
+            {'session_id': 8, 'created_at': '2026-10-06T08:00:00', 'baseline_eye_share': 0.2, 'post_eye_share': 0.2},
+          ],
+        },
+      ],
+      'excluded': 2,
+      'note': 'Sessions from different groups are never pooled into one trend by default.',
+    };
+
+class FakeAnalysisRepository implements AnalysisRepository {
+  FakeAnalysisRepository({Map<String, dynamic>? json}) : json = json ?? sampleAnalysisJson();
+
+  Map<String, dynamic> json;
+  ApiException? failure;
+  final List<AnalysisFilters> requests = [];
+
+  @override
+  Future<AnalysisResponse> analysis(int studyId, AnalysisFilters filters) async {
+    if (failure != null) throw failure!;
+    requests.add(filters);
+    return AnalysisResponse.fromJson(json);
+  }
+}
+
+class FakeExportsRepository implements ExportsRepository {
+  ApiException? failure;
+  final List<String> calls = [];
+  final List<AnalysisFilters> filters = [];
+  List<DictionaryEntry> dictionary = const [
+    DictionaryEntry(
+      name: 'eye_share',
+      type: 'float',
+      unit: 'share 0-1',
+      meaning: 'Share of classifiable time on the eye region.',
+    ),
+    DictionaryEntry(
+      name: 'quality',
+      type: 'string',
+      unit: '-',
+      meaning: 'ok, review or exclude.',
+    ),
+  ];
+
+  Uint8List _bytes(String name) {
+    if (failure != null) throw failure!;
+    calls.add(name);
+    return Uint8List.fromList('data:$name'.codeUnits);
+  }
+
+  @override
+  Future<Uint8List> sessionsCsv(int studyId, AnalysisFilters f) async {
+    filters.add(f);
+    return _bytes('sessions.csv');
+  }
+
+  @override
+  Future<Uint8List> sessionsJson(int studyId, AnalysisFilters f) async {
+    filters.add(f);
+    return _bytes('sessions.json');
+  }
+
+  @override
+  Future<Uint8List> samplesCsv(int studyId, String sessionId) async =>
+      _bytes('samples.csv:$sessionId');
+
+  @override
+  Future<Uint8List> eventsCsv(int studyId, String sessionId) async =>
+      _bytes('events.csv:$sessionId');
+
+  @override
+  Future<List<DictionaryEntry>> dataDictionary(int studyId) async {
+    if (failure != null) throw failure!;
+    calls.add('dictionary');
+    return dictionary;
+  }
+}
+
+class FakeAccessLogRepository implements AccessLogRepository {
+  FakeAccessLogRepository({List<AccessLogEntry>? entries})
+      : entries = entries ??
+            const [
+              AccessLogEntry(
+                at: '2026-09-30T09:15:00',
+                userId: '4',
+                role: 'researcher',
+                action: 'export_sessions',
+                detail: 'sessions.csv, 12 rows',
+              ),
+              AccessLogEntry(
+                at: '2026-09-30T08:00:00',
+                userId: '5',
+                role: 'analyst',
+                action: 'replay',
+                detail: 'session_id: 21',
+              ),
+              AccessLogEntry(
+                at: '2026-09-29T17:45:00',
+                userId: '4',
+                role: 'researcher',
+                action: 'delete_participant_data',
+              ),
+            ];
+
+  List<AccessLogEntry> entries;
+  ApiException? failure;
+  final List<int> limits = [];
+
+  @override
+  Future<List<AccessLogEntry>> list(int studyId, {int limit = 200}) async {
+    if (failure != null) throw failure!;
+    limits.add(limit);
+    return entries;
+  }
 }

@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:participant_app/features/assignments/data/api_assignments_repository.dart';
+import 'package:participant_app/features/data_export/data/api_data_export_repository.dart';
+import 'package:participant_app/features/erase/data/api_erase_repository.dart';
 import 'package:participant_app/features/session/data/api_session_repository.dart';
 
 /// The wire of the step 3 endpoints, checked against a canned HTTP client:
@@ -280,6 +282,68 @@ void main() {
       expect(s.outcomes!.numberTask.correct, 5);
       expect(s.outcomes!.improvement.result, isNull);
       expect(s.stages.single.decision, 'complete');
+    });
+  });
+
+  group('step 4: raw data, deletion and media_start', () {
+    test('/me/data is read as is', () async {
+      final r = Recorder();
+      r.answers['GET /me/data'] = {
+        'consents': [{'sheet_version': 1}],
+        'sessions': [
+          {
+            'summary': {'id': 1},
+            'samples': [[0, 1.0, 2.0, 0.9, 2]],
+            'events': [],
+          },
+        ],
+        'export_version': 2,
+      };
+      final data = await ApiDataExportRepository(r.client()).fetchMyData();
+      final counts = MyDataCounts.fromJson(data);
+      expect(counts.sessions, 1);
+      expect(counts.samples, 1);
+      expect(counts.consents, 1);
+      expect(r.requests.single.headers['Authorization'], 'Bearer tok');
+    });
+
+    test('POST /me/erase sends the phrase and reads what was deleted', () async {
+      final r = Recorder();
+      r.answers['POST /me/erase'] = {
+        'policy': 'keep_coded',
+        'deleted': {'sessions': 2, 'samples': 900, 'consents': 1},
+        'identity_removed': true,
+      };
+      final result = await ApiEraseRepository(r.client()).eraseMyData('DELETE MY DATA');
+      expect(r.requests.single.method, 'POST');
+      expect(r.bodyOf(0), {'confirm': 'DELETE MY DATA'});
+      expect(result.policy, 'keep_coded');
+      expect(result.deleted['samples'], 900);
+      expect(result.identityRemoved, isTrue);
+    });
+
+    test('a refused erase is an ApiException with the server sentence', () async {
+      final r = Recorder();
+      await expectLater(
+        ApiEraseRepository(r.client()).eraseMyData('nope'),
+        throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('no route'))),
+      );
+    });
+
+    test('a media_start event carries segment id and media key', () async {
+      final r = Recorder();
+      r.answers['POST /me/sessions/11/events'] = {'id': 11, 'status': 'running'};
+      await ApiSessionRepository(r.client()).postEvent(
+        '11',
+        SessionEventType.mediaStart,
+        tMs: 4200,
+        payload: {'segment_id': 's1', 'media_key': 's1.webm'},
+      );
+      expect(r.bodyOf(0), {
+        'type': 'media_start',
+        't_ms': 4200,
+        'payload': {'segment_id': 's1', 'media_key': 's1.webm'},
+      });
     });
   });
 }

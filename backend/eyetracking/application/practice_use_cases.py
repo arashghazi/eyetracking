@@ -334,6 +334,7 @@ def my_assignment_content(uow: PracticeUnitOfWork, signer: MediaSigner, principa
             {
                 "id": seg["id"],
                 "text": personalize(seg.get("text", ""), name, a.topic),
+                "media_key": seg.get("media_key"),
                 "media_url": f"/media/{signer.sign(m.id or 0)}" if m else None,
                 "duration_s": seg.get("duration_s"),
                 "face_layout": seg.get("face_layout"),

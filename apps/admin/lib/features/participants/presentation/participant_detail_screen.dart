@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../app_scope.dart';
 import '../../assignments/presentation/assignments_section.dart';
 import '../application/participants_controller.dart';
+import 'delete_data_dialog.dart';
 import 'yes_no.dart';
 
 class ParticipantDetailScreen extends StatefulWidget {
@@ -45,6 +46,13 @@ class _ParticipantDetailScreenState extends State<ParticipantDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _confirmDelete() async {
+    final code = _controller.record.code;
+    if (await DeleteDataDialog.show(context, code)) {
+      await _controller.deleteData(code);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +65,13 @@ class _ParticipantDetailScreenState extends State<ParticipantDetailScreen> {
           return PageFrame(
             banner: c.error != null
                 ? MessageBanner(message: c.error!, onDismiss: c.dismissError)
-                : null,
+                : c.notice != null
+                    ? MessageBanner(
+                        message: c.notice!,
+                        kind: BannerKind.success,
+                        onDismiss: c.dismissNotice,
+                      )
+                    : null,
             children: [
               _Section(
                 title: 'Readiness',
@@ -83,12 +97,17 @@ class _ParticipantDetailScreenState extends State<ParticipantDetailScreen> {
               ),
               const SizedBox(height: 12),
               AssignmentsSection(
+                key: ValueKey('assignments-${c.dataVersion}'),
                 studyId: widget.studyId,
                 code: r.code,
                 canEdit: widget.canEdit,
               ),
               const SizedBox(height: 12),
               _IdentityCard(controller: c),
+              if (widget.canEdit) ...[
+                const SizedBox(height: 12),
+                _DeleteDataCard(controller: c, onDelete: _confirmDelete),
+              ],
             ],
           );
         },
@@ -279,6 +298,51 @@ class _IdentityCard extends StatelessWidget {
                 onPressed: c.revealing ? null : c.revealIdentity,
                 child: Text(c.revealing ? 'Checking...' : 'Reveal identity'),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteDataCard extends StatelessWidget {
+  const _DeleteDataCard({required this.controller, required this.onDelete});
+
+  final ParticipantDetailController controller;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      key: const Key('delete-data-card'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Research data', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Deleting removes the sessions, samples, consents, demographics, '
+              'profile and assignments of this research code. The deletion is '
+              'written to the access log.',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('delete-participant-data'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: const BorderSide(color: AppColors.error),
+              ),
+              onPressed: controller.deleting ? null : onDelete,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(controller.deleting
+                  ? 'Deleting...'
+                  : "Delete this participant's research data"),
+            ),
           ],
         ),
       ),

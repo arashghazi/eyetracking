@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../access_log/presentation/access_log_tab.dart';
+import '../../analysis/presentation/analysis_tab.dart';
 import '../../demographics_form/presentation/demographics_form_tab.dart';
 import '../../information_sheet/presentation/information_sheet_tab.dart';
 import '../../invitations/presentation/invitations_tab.dart';
@@ -11,7 +13,8 @@ import '../../protocols/presentation/protocols_tab.dart';
 import '../../sessions/presentation/sessions_tab.dart';
 import '../../studies/domain/study.dart';
 
-/// One study, split into tabs. The Members tab is for administrators only.
+/// One study, split into tabs. The Members tab is for administrators only
+/// and the Access log for researchers and administrators.
 /// Analysts see the measurement settings, protocols and content read-only.
 class StudyScreen extends StatelessWidget {
   const StudyScreen({
@@ -33,6 +36,7 @@ class StudyScreen extends StatelessWidget {
         ParticipantsTab(studyId: study.id, canEdit: canEditSettings),
       ),
       ('Sessions', SessionsTab(studyId: study.id)),
+      ('Analysis', AnalysisTab(studyId: study.id)),
       (
         'Protocols',
         ProtocolsTab(studyId: study.id, canEdit: canEditSettings),
@@ -45,6 +49,9 @@ class StudyScreen extends StatelessWidget {
         'Measurement settings',
         MeasurementSettingsTab(studyId: study.id, canEdit: canEditSettings),
       ),
+      // Researchers and administrators read the access log; analysts do not.
+      if (isAdmin || canEditSettings)
+        ('Access log', AccessLogTab(studyId: study.id)),
       if (isAdmin) ('Members', MembersTab(studyId: study.id)),
     ];
     return DefaultTabController(

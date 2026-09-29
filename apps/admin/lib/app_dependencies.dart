@@ -1,14 +1,20 @@
+import 'package:eyetracking_core/eyetracking_core.dart';
+
+import 'features/access_log/domain/access_log_repository.dart';
+import 'features/analysis/domain/analysis_repository.dart';
 import 'features/assignments/domain/assignments_repository.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/content/domain/content_repository.dart';
 import 'features/content/domain/media_picker.dart';
 import 'features/demographics_form/domain/demographics_form_repository.dart';
+import 'features/exports/domain/exports_repository.dart';
 import 'features/information_sheet/domain/information_sheet_repository.dart';
 import 'features/invitations/domain/invitations_repository.dart';
 import 'features/measurement_settings/domain/measurement_settings_repository.dart';
 import 'features/members/domain/members_repository.dart';
 import 'features/participants/domain/participants_repository.dart';
 import 'features/protocols/domain/protocols_repository.dart';
+import 'features/replay/domain/replay_repository.dart';
 import 'features/sessions/domain/sessions_repository.dart';
 import 'features/studies/domain/studies_repository.dart';
 
@@ -28,6 +34,12 @@ class AppDependencies {
     required this.content,
     required this.assignments,
     required this.mediaPicker,
+    required this.replay,
+    required this.analysis,
+    required this.exports,
+    required this.accessLog,
+    required this.videoStage,
+    required this.saveFile,
   });
 
   final AuthController auth;
@@ -45,4 +57,17 @@ class AppDependencies {
 
   /// Chooses a file on the researcher's computer (browser file dialog).
   final MediaPicker mediaPicker;
+
+  // Step 4: research and data.
+  final ReplayRepository replay;
+  final AnalysisRepository analysis;
+  final ExportsRepository exports;
+  final AccessLogRepository accessLog;
+
+  /// Builds the stimulus video of the replay (a `<video>` element in the
+  /// browser, a fake in tests).
+  final VideoStageBuilder videoStage;
+
+  /// Hands a downloaded file to the browser (a recording fake in tests).
+  final FileSaver saveFile;
 }

@@ -2,6 +2,7 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
+import '../../erase/presentation/erase_section.dart';
 import '../application/profile_controller.dart';
 import 'chip_list_editor.dart';
 
@@ -196,6 +197,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              const EraseSection(),
             ],
           );
         },

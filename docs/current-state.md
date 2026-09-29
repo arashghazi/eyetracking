@@ -11,8 +11,8 @@ Updated: 2026-09-29 · design authority: docs/design/EyeTracking-Product-Design-
 
 ## Build step 2 — session and measurement (built; verified in a headless browser with a fake camera)
 - Backend: sessions with readiness gate, camera check, calibration fit and re-calibration, regional validation with reasons, layouts and sample recording (only while running and calibrated), events (pause/resume/end; camera/orientation/zoom changes invalidate calibration), coverage where missing ≠ not looking, eye-region attention only with a passed validation on a non-synthetic estimator. Per-study measurement settings.
-- Gaze service: swappable estimator; synthetic head-proxy for development, L2CS-Net adapter (weights not in repo), Haar face detector; standalone on :8100 or authenticated under `/gaze/*`.
-- Flutter: participant session flow (intro, camera preview via getUserMedia, camera check, 9-dot calibration, regional validation on a placeholder face with a per-dot table, 30 s baseline with pause/resume/end, summary that says "Not evaluable" and flags the development estimator); admin Sessions tab, session detail and Measurement settings. Browser capture lives in `packages/core` (`WebFrameSource`, `package:web`), Android capture is a stub.
+- Gaze service: swappable estimator (synthetic proxy, L2CS-Net adapter without weights in repo, Haar detector); standalone on :8100 or under `/gaze/*`.
+- Flutter: participant session flow (camera preview, camera check, 9-dot calibration, regional validation, baseline with pause/resume/end, honest summary); admin Sessions tab, session detail, Measurement settings. Browser capture in `packages/core`; Android capture is a stub.
 - Tests: 29 backend (pytest); Flutter core 45, participant 91, admin 49; end-to-end run in headless Chromium recorded in docs/features/step2-e2e.md with screenshots. No accuracy claims: every number so far comes from synthetic data or a fake face.
 - Pending for step 2 sign-off: run on a PC with a real webcam and the published L2CS weights (`EYETRACKING_GAZE_MODEL=l2cs`, `EYETRACKING_GAZE_WEIGHTS=...`) and show the real validation result to the reviewer; Android capture.
 
@@ -21,9 +21,10 @@ Updated: 2026-09-29 · design authority: docs/design/EyeTracking-Product-Design-
 - Flutter: participant home with ordered assignments and states, topic confirmation, gradual practice (face levels 0–3, number zones, keyboard / four-choice / symbol responses, comfort question per stage, hold / easier / stop / complete from the server), interest conversation (video segments through signed links, questions with branches, comprehension, post clip), summary with the three outcomes and the improvement line; admin Protocols (editor, publish, new draft), Content (editor, upload, approve), Assignments, session detail with outcomes, trials, answers and comfort.
 - Tests: 35 backend; Flutter core 80, participant 219, admin 119. Browser runs of both paths recorded in docs/features/step3-e2e.md. See docs/features/step3-backend.md, step3-flutter.md and docs/api/step3-practice.md.
 
-## Build step 4 — research and data (backend done; Flutter in progress)
-- Quality grades with study thresholds, replay bundle (stimulus geometry + gaze estimate, gaps, pauses, quality strip, signed media), analysis with filters and comparability groups (never pooled across device / protocol version / estimator / stimulus size), coded CSV/JSON exports with demographics and versions, data dictionary, access log, participant raw data, withdrawal with retention policy, researcher deletion of research rows.
-- Tests: 41 backend. See docs/features/step4-backend.md and docs/api/step4-research-data.md.
+## Build step 4 — research and data (built; verified in a headless browser)
+- Quality grades with study thresholds; replay bundle (stimulus geometry + gaze estimate, gaps, pauses, quality strip, signed media); analysis with filters and comparability groups that are never pooled; coded CSV/JSON exports with demographics and versions; data dictionary; access log; participant raw data; withdrawal under the retention policy; researcher deletion.
+- Flutter: admin Replay screen (stimulus geometry + gaze dot, timeline with segments, gaps, pauses, quality strip, optional stimulus video), Analysis tab (filters, table, comparable groups, trend charts, CSV/JSON exports, data dictionary), Access log tab, participant data deletion, retention policy; participant "Download my data" and "Withdraw and delete my data".
+- Tests: 41 backend; Flutter core 107, participant 258, admin 250. Browser run in docs/features/step4-e2e.md. See docs/features/step4-backend.md, step4-flutter.md and docs/api/step4-research-data.md.
 
 ## Not started (design steps 5–7)
 AI content pipeline; pilot; live avatar.

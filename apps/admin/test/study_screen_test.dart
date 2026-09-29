@@ -43,12 +43,14 @@ void main() {
 
       for (final tab in [
         'Sessions',
+        'Analysis',
         'Protocols',
         'Content',
         'Invitations',
         'Information sheet',
         'Demographics form',
         'Measurement settings',
+        'Access log',
         'Members',
       ]) {
         await openTab(tester, tab);
@@ -67,6 +69,18 @@ void main() {
     expect(find.widgetWithText(Tab, 'Content'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Invitations'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Measurement settings'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Analysis'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Access log'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Members'), findsNothing);
+  });
+
+  testWidgets('analysts read and export but do not see the access log',
+      (tester) async {
+    useWindow(tester, 800);
+    await openStudy(tester, TestBed(), role: 'analyst');
+    expect(find.widgetWithText(Tab, 'Analysis'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Sessions'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Access log'), findsNothing);
     expect(find.widgetWithText(Tab, 'Members'), findsNothing);
   });
 }

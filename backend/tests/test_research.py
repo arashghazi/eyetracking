@@ -104,11 +104,17 @@ def test_replay_media_for_interest_path(world):
     sid = start_practice_session(world, world.p1, aid)
     c.post(f"/me/sessions/{sid}/layout", json={"segment": "practice", "layout": LAYOUT}, headers=p)
     c.post(f"/me/sessions/{sid}/events", json={"t_ms": 0, "type": "segment_start"}, headers=p)
+    content = c.get(f"/me/assignments/{aid}/content", headers=p).json()
+    assert content["segments"][0]["media_key"] == "s1.webm"
     assert c.post(f"/me/sessions/{sid}/events", json={"t_ms": 10, "type": "media_start", "payload": {"segment_id": "s1", "media_key": "s1.webm"}}, headers=p).status_code == 200
+    # the app may only know the segment id; the server resolves the clip through the content definition
+    assert c.post(f"/me/sessions/{sid}/events", json={"t_ms": 6000, "type": "media_start", "payload": {"segment_id": "s2", "media_key": "s2"}}, headers=p).status_code == 200
     c.post(f"/me/sessions/{sid}/samples", json={"samples": samples_for(540, 270, n=5, t0=100)}, headers=p)
     b = c.get(f"/studies/{world.study_a}/sessions/{sid}/replay", headers=auth(world.researcher_a)).json()
     assert b["media"][0]["segment_id"] == "s1" and b["media"][0]["start_ms"] == 10 and b["media"][0]["url"].startswith("/media/")
+    assert b["media"][1]["media_key"] == "s2.webm" and b["media"][1]["url"].startswith("/media/")
     assert c.get(b["media"][0]["url"]).status_code == 200
+    assert c.get(f"/studies/{world.study_a}", headers=auth(world.admin)).json()["retention_policy"] == "delete_all"
 
 
 def test_analysis_exports_and_dictionary(world):

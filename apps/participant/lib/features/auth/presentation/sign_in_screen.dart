@@ -45,6 +45,15 @@ class _SignInScreenState extends State<SignInScreen> {
           title: 'Sign in',
           subtitle: 'Use the email address and password you registered with.',
           children: [
+            if (auth.notice != null) ...[
+              MessageBanner(
+                key: const Key('auth-notice'),
+                message: auth.notice!,
+                kind: BannerKind.success,
+                onDismiss: auth.dismissNotice,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (auth.error != null) ...[
               MessageBanner(message: auth.error!, onDismiss: auth.dismissError),
               const SizedBox(height: 12),

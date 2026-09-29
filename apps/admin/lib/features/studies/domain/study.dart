@@ -1,11 +1,6 @@
-class Study {
-  const Study({required this.id, required this.name});
+import 'package:eyetracking_core/eyetracking_core.dart';
 
-  final int id;
-  final String name;
-
-  factory Study.fromJson(Map<String, dynamic> json) => Study(
-        id: (json['id'] as num).toInt(),
-        name: json['name'] as String? ?? '',
-      );
-}
+/// A study as the admin lists it: id, name and the retention policy that
+/// decides what happens to research rows when a participant erases their
+/// data.
+typedef Study = StudyInfo;

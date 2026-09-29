@@ -49,7 +49,7 @@ class SessionDetailController extends SafeChangeNotifier {
   /// Samples are fetched in pages of this size.
   static const pageSize = 100;
 
-  /// The table shows at most this many rows (replay comes in a later step).
+  /// The table shows at most this many rows (the replay and the CSV have all).
   static const displayLimit = 200;
 
   final SessionsRepository _repository;

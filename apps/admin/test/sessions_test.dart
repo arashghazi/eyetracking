@@ -33,6 +33,7 @@ void main() {
         'Participant',
         'Created',
         'Status',
+        'Quality',
         'Estimator',
         'Calibration',
         'Validation',
@@ -56,6 +57,35 @@ void main() {
       expect(find.text('43 %'), findsOneWidget);
       expect(find.text('Not evaluable'), findsNWidgets(2));
       expect(find.text('—'), findsWidgets);
+    });
+
+    testWidgets('has a Quality column: ok, review or exclude, reasons in a tooltip',
+        (tester) async {
+      useWindow(tester, 1440, 900);
+      await openSessions(tester, TestBed());
+      final table = find.byKey(const Key('sessions-table'));
+      // P-001 exclude, P-002 review, P-003 ok.
+      expect(find.descendant(of: table, matching: find.text('Exclude')), findsOneWidget);
+      expect(find.descendant(of: table, matching: find.text('Review')), findsOneWidget);
+      expect(find.descendant(of: table, matching: find.text('OK')), findsOneWidget);
+      // A small label carries the first reason (and how many more).
+      expect(find.text('Recorded with the development (synthetic) estimator (+1)'),
+          findsOneWidget);
+      expect(find.text('Ended early (+1)'), findsOneWidget);
+
+      // The tooltip lists every reason in plain language.
+      final tooltips = tester.widgetList<Tooltip>(find.descendant(
+        of: table,
+        matching: find.byType(Tooltip),
+      ));
+      final messages = [for (final t in tooltips) t.message];
+      expect(messages, contains('Ended early\nUncertain share above 20 %'));
+      expect(messages, contains('No quality problem found.'));
+      expect(
+        messages,
+        contains('Recorded with the development (synthetic) estimator\n'
+            'Regional validation not passed'),
+      );
     });
 
     testWidgets('an empty study says so', (tester) async {
@@ -132,6 +162,49 @@ void main() {
         matching: find.text('—'),
       ), findsOneWidget);
       expect(find.byKey(const Key('synthetic-badge')), findsOneWidget);
+    });
+
+    testWidgets('has the quality grade and a Replay button', (tester) async {
+      useWindow(tester, 1440, 1600);
+      await openDetail(tester, TestBed());
+      expect(find.descendant(
+        of: find.byKey(const Key('header-quality')),
+        matching: find.text('Exclude'),
+      ), findsOneWidget);
+      expect(find.byKey(const Key('open-replay')), findsOneWidget);
+      expect(find.text('Replay'), findsOneWidget);
+    });
+
+    testWidgets('Samples CSV and Events CSV download the files', (tester) async {
+      useWindow(tester, 1440, 3000);
+      final bed = TestBed();
+      await openDetail(tester, bed);
+
+      await tester.tap(find.byKey(const Key('download-events-csv')));
+      await tester.pumpAndSettle();
+      expect(bed.exports.calls, ['events.csv:21']);
+      expect(bed.saver.saved.single.name, 'events-P-001-21.csv');
+      expect(bed.saver.saved.single.type, startsWith('text/csv'));
+      expect(find.textContaining('Downloaded events-P-001-21.csv'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('download-samples-csv')));
+      await tester.pumpAndSettle();
+      expect(bed.exports.calls, ['events.csv:21', 'samples.csv:21']);
+      expect(bed.saver.saved.last.name, 'samples-P-001-21.csv');
+    });
+
+    testWidgets('a refused download shows the server message', (tester) async {
+      useWindow(tester, 1440, 3000);
+      final bed = TestBed(
+        exports: FakeExportsRepository()
+          ..failure = const ApiException('You do not have permission to do this.',
+              statusCode: 403),
+      );
+      await openDetail(tester, bed);
+      await tester.tap(find.byKey(const Key('download-samples-csv')));
+      await tester.pumpAndSettle();
+      expect(find.text('You do not have permission to do this.'), findsOneWidget);
+      expect(bed.saver.saved, isEmpty);
     });
 
     testWidgets('shows device, calibration, validation, segments and events',

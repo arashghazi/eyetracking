@@ -51,7 +51,9 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => screen),
     );
-    if (mounted) {
+    // After the account was closed or the session ended there is nothing to
+    // reload: the requests would only be refused.
+    if (mounted && widget.auth.isSignedIn) {
       await Future.wait([
         _controller.load(),
         _sessions.load(),

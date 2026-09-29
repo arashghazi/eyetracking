@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -44,6 +45,26 @@ class ApiClient {
   Future<Object?> put(String path, [Object? body]) =>
       _send('PUT', path, body: body);
 
+  /// DELETE, with an optional JSON body (a confirmation).
+  Future<Object?> delete(String path, [Object? body]) =>
+      _send('DELETE', path, body: body);
+
+  /// Downloads a file (CSV, JSON, ...) exactly as the server sends it.
+  /// Failures become an [ApiException] like every other call.
+  Future<Uint8List> getBytes(String path) async {
+    final token = tokenStore.token;
+    final response = await _exchange('GET', path, accept: '*/*');
+    final status = response.statusCode;
+    if (status >= 200 && status < 300) return response.bodyBytes;
+    if (status == 401 && token != null) onUnauthorized?.call();
+    final decoded = _decode(response);
+    throw ApiException(
+      _errorMessage(status, decoded),
+      statusCode: status,
+      body: decoded,
+    );
+  }
+
   /// Convenience: response must be a JSON object.
   Future<Map<String, dynamic>> getObject(String path) async =>
       _asObject(await get(path));
@@ -64,6 +85,9 @@ class ApiClient {
 
   Future<Map<String, dynamic>> putObject(String path, [Object? body]) async =>
       _asObject(await put(path, body));
+
+  Future<Map<String, dynamic>> deleteObject(String path, [Object? body]) async =>
+      _asObject(await delete(path, body));
 
   /// Makes a path the server sent (such as the signed `/media/<token>` of a
   /// video) reachable from the browser: a root-relative path is joined to
@@ -155,17 +179,37 @@ class ApiClient {
     bool nullOn404 = false,
   }) async {
     final token = tokenStore.token;
+    final response = await _exchange(method, path, body: body);
+    final status = response.statusCode;
+    final decoded = _decode(response);
+    if (status >= 200 && status < 300) return decoded;
+    if (status == 404 && nullOn404) return null;
+    if (status == 401 && token != null) onUnauthorized?.call();
+    throw ApiException(
+      _errorMessage(status, decoded),
+      statusCode: status,
+      body: decoded,
+    );
+  }
+
+  /// Sends one request and returns the response whatever its status; only
+  /// network failures and timeouts become an [ApiException] here.
+  Future<http.Response> _exchange(
+    String method,
+    String path, {
+    Object? body,
+    String accept = 'application/json',
+  }) async {
+    final token = tokenStore.token;
     final request = http.Request(method, Uri.parse('$baseUrl$path'))
-      ..headers['Accept'] = 'application/json';
+      ..headers['Accept'] = accept;
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
     if (body != null) {
       request.headers['Content-Type'] = 'application/json; charset=utf-8';
       request.body = jsonEncode(body);
     }
-
-    final http.Response response;
     try {
-      response = await http.Response.fromStream(
+      return await http.Response.fromStream(
         await _http.send(request).timeout(timeout),
       );
     } on TimeoutException {
@@ -177,17 +221,6 @@ class ApiClient {
         'Could not reach the server. Check your connection and try again.',
       );
     }
-
-    final status = response.statusCode;
-    final decoded = _decode(response);
-    if (status >= 200 && status < 300) return decoded;
-    if (status == 404 && nullOn404) return null;
-    if (status == 401 && token != null) onUnauthorized?.call();
-    throw ApiException(
-      _errorMessage(status, decoded),
-      statusCode: status,
-      body: decoded,
-    );
   }
 
   Object? _decode(http.Response response) {
