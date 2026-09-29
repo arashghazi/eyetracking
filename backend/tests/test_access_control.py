@@ -82,6 +82,17 @@ def test_analyst_reads_coded_data_but_cannot_write(world):
     assert c.post("/users", json={"email": "x@test.local", "password": "password-123", "role": "analyst"}, headers=auth(world.analyst_a)).status_code == 403
 
 
+def test_admin_reads_study_data_only_as_explicit_member(world):
+    c = world.c
+    url = f"/studies/{world.study_a}/participants"
+    assert c.get(url, headers=auth(world.admin)).status_code == 403
+    assert c.get(f"/studies/{world.study_a}/information-sheet", headers=auth(world.admin)).status_code == 403
+    me = c.get("/me", headers=auth(world.admin)).json()
+    c.post(f"/studies/{world.study_a}/members", json={"user_id": me["id"], "study_role": "analyst"}, headers=auth(world.admin))
+    r = c.get(url, headers=auth(world.admin))
+    assert r.status_code == 200 and not _has_key(r.json(), "email")
+
+
 def test_admin_only_operations(world):
     c = world.c
     assert c.post("/studies", json={"name": "C"}, headers=auth(world.researcher_a)).status_code == 403

@@ -30,9 +30,11 @@ def require_participant(principal: Principal) -> Participant:
 
 
 def require_study_access(principal: Principal, study_id: int, *study_roles: StudyRole) -> None:
-    """Admins manage studies; researchers/analysts need a membership with an allowed study role."""
-    if principal.role is Role.admin:
-        return
+    """Study data needs a membership with an allowed study role.
+
+    Admins manage users, studies and members (see require_role) but do not read study data
+    unless they are made members explicitly; that keeps every data access grant visible.
+    """
     m = principal.membership(study_id)
     if m is None or (study_roles and m.study_role not in study_roles):
         raise Forbidden("no access to this study")
