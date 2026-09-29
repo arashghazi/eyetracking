@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:eyetracking_core/testing.dart';
+import 'package:participant_app/features/assignments/domain/assignments_repository.dart';
+import 'package:participant_app/features/profile/domain/profile_repository.dart';
 import 'package:participant_app/features/session/application/session_flow_controller.dart';
 import 'package:participant_app/features/session/domain/session_repository.dart';
 import 'package:participant_app/features/session/domain/session_step.dart';
@@ -87,10 +90,34 @@ class FakeSessionRepository implements SessionRepository {
   final List<List<CalibrationTargetCapture>> calibrations = [];
   final List<({StimulusLayout layout, List<ValidationTargetCapture> targets})>
       validations = [];
-  final List<({SessionSegmentName segment, StimulusLayout layout})> layouts = [];
+  final List<({SessionSegmentName segment, StimulusLayout layout, int? stageIndex})>
+      layouts = [];
   final List<List<RawGazeSample>> sampleBatches = [];
   final List<RecordedEvent> events = [];
   int summaryCalls = 0;
+
+  // Step 3.
+  /// The protocol the created session carries (with its definition).
+  ProtocolRef? protocolForCreate;
+  SessionOutcomes? outcomes;
+  List<StageRecord> stageRecords = const [];
+  final List<List<TrialRecord>> trialBatches = [];
+  final List<({int stageIndex, int? comfort})> stageRequests = [];
+  final List<AnswerRequest> answers = [];
+
+  /// Decisions handed out in order; when empty, [decide] answers.
+  final List<StageDecision> scriptedDecisions = [];
+  StageDecision Function(int stageIndex, int? comfort) decide =
+      (stage, comfort) => StageDecision(
+            kind: StageDecisionKind.advance,
+            nextStageIndex: stage + 1,
+            reason: 'criteria_met',
+            correctRatio: 1,
+            invalidShare: 0,
+          );
+  AnswerResult Function(AnswerRequest) answerResult =
+      (a) => const AnswerResult();
+  ApiException? trialsFailure;
 
   int get sampleCount => sampleBatches.fold(0, (a, b) => a + b.length);
   List<SessionEventType> get eventTypes => [for (final e in events) e.type];
@@ -100,6 +127,7 @@ class FakeSessionRepository implements SessionRepository {
         status: status,
         createdAt: '2026-09-29T08:00:00',
         synthetic: syntheticSummary,
+        protocol: protocolForCreate,
       );
 
   @override
@@ -152,10 +180,11 @@ class FakeSessionRepository implements SessionRepository {
   Future<void> postLayout(
     String sessionId,
     SessionSegmentName segment,
-    StimulusLayout layout,
-  ) async {
+    StimulusLayout layout, {
+    int? stageIndex,
+  }) async {
     calls.add('layout:${segment.wire}');
-    layouts.add((segment: segment, layout: layout));
+    layouts.add((segment: segment, layout: layout, stageIndex: stageIndex));
   }
 
   @override
@@ -200,7 +229,43 @@ class FakeSessionRepository implements SessionRepository {
         evaluable: false,
         reason: 'Regional validation did not pass.',
       ),
+      protocol: protocolForCreate,
+      outcomes: outcomes,
+      stages: stageRecords,
     );
+  }
+
+  @override
+  Future<TrialAck> postTrials(
+    String sessionId,
+    List<TrialRecord> trials,
+  ) async {
+    calls.add('trials');
+    if (trialsFailure != null) throw trialsFailure!;
+    trialBatches.add(trials);
+    return TrialAck(stored: trials.length, correct: 0);
+  }
+
+  @override
+  Future<StageDecision> stageResult(
+    String sessionId,
+    int stageIndex, {
+    int? comfortValue,
+  }) async {
+    calls.add('stage-result');
+    stageRequests.add((stageIndex: stageIndex, comfort: comfortValue));
+    if (scriptedDecisions.isNotEmpty) return scriptedDecisions.removeAt(0);
+    return decide(stageIndex, comfortValue);
+  }
+
+  @override
+  Future<AnswerResult> postAnswer(
+    String sessionId,
+    AnswerRequest answer,
+  ) async {
+    calls.add('answer:${answer.kind}');
+    answers.add(answer);
+    return answerResult(answer);
   }
 
   @override
@@ -222,6 +287,10 @@ class Rig {
     SessionTiming timing = fastTiming,
     bool autoFrames = true,
     ScreenInfo screen = const ScreenInfo(w: 1440, h: 900),
+    Assignment? assignment,
+    AssignmentsRepository? assignments,
+    ProfileRepository? profile,
+    int? seed,
   })  : repo = FakeSessionRepository(),
         gaze = FakeGazeEstimator(),
         frames = FakeFrameSource(autoFrames: autoFrames) {
@@ -231,6 +300,10 @@ class Rig {
       frames: frames,
       device: const DeviceInfo(platform: 'web', userAgent: 'test-agent'),
       timing: timing,
+      assignment: assignment,
+      assignments: assignments,
+      profile: profile,
+      random: seed == null ? null : math.Random(seed),
     )..updateScreen(screen);
   }
 
@@ -274,6 +347,15 @@ class Rig {
   Future<void> toBaseline() async {
     await throughValidation();
     controller.continueToBaseline();
+  }
+
+  /// Runs the baseline of a protocol session to its end: the flow then
+  /// waits at the practice instructions.
+  Future<void> toPractice() async {
+    await toBaseline();
+    await controller.startBaseline();
+    await until(() => controller.step == SessionStep.practice,
+        what: 'the practice step');
   }
 
   void dispose() => controller.dispose();

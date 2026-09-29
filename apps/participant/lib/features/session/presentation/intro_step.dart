@@ -27,9 +27,10 @@ class IntroStep extends StatelessWidget {
           ? MessageBanner(message: c.error!, onDismiss: c.dismissError)
           : null,
       children: [
-        Text('Start a session', style: theme.textTheme.headlineSmall),
+        Text(c.hasProtocol ? 'Prepare for session' : 'Start a session',
+            style: theme.textTheme.headlineSmall),
         const SizedBox(height: 12),
-        const StepList(current: SessionStep.intro),
+        StepList(current: SessionStep.intro, protocol: c.hasProtocol),
         const SizedBox(height: 16),
         if (blocked != null)
           _Blocked(reasons: blocked, onHome: onHome)
@@ -54,14 +55,33 @@ class IntroStep extends StatelessWidget {
                     'Validation',
                     'You look at some dots on a picture of a face.',
                   ),
-                  const _Bullet(
+                  _Bullet(
                     'Baseline',
-                    'You look at a face for 30 seconds. There is nothing to do.',
+                    c.hasProtocol
+                        ? 'You look at a face for a short time. There is nothing to do.'
+                        : 'You look at a face for 30 seconds. There is nothing to do.',
                   ),
-                  const _Bullet(
-                    'Summary',
-                    'You see how much of the session could be used.',
-                  ),
+                  if (c.hasProtocol) ...[
+                    _Bullet(
+                      'Practice',
+                      c.assignment!.isInterest
+                          ? 'You watch a short video conversation and answer a few questions.'
+                          : 'You see a face with a number near it and tell us the number. '
+                              'It is not a test.',
+                    ),
+                    const _Bullet(
+                      'Post observation',
+                      'You look at the picture or video once more. Nothing is asked.',
+                    ),
+                    const _Bullet(
+                      'Comfort and summary',
+                      'We ask how you feel, then you see how the session went.',
+                    ),
+                  ] else
+                    const _Bullet(
+                      'Summary',
+                      'You see how much of the session could be used.',
+                    ),
                   const SizedBox(height: 8),
                   Text(
                     'Camera pictures are not stored. Only numbers about where '

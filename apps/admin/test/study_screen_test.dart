@@ -43,6 +43,8 @@ void main() {
 
       for (final tab in [
         'Sessions',
+        'Protocols',
+        'Content',
         'Invitations',
         'Information sheet',
         'Demographics form',
@@ -61,6 +63,8 @@ void main() {
     await openStudy(tester, bed, role: 'researcher');
     expect(find.widgetWithText(Tab, 'Participants'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Sessions'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Protocols'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Content'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Invitations'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Measurement settings'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Members'), findsNothing);

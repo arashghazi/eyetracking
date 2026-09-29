@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'app_dependencies.dart';
+import 'features/assignments/data/api_assignments_repository.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/auth/data/api_auth_repository.dart';
 import 'features/consent/data/api_consent_repository.dart';
@@ -37,6 +38,8 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     gaze: GazeServiceClient.fromEnvironment(api),
     frameSource: createFrameSource(),
     device: currentDeviceInfo(),
+    assignments: ApiAssignmentsRepository(api),
+    videoStage: (context, config) => VideoStage(config: config),
     initialInvitationToken: Uri.base.queryParameters['invitation'] ?? '',
   );
 }

@@ -1,5 +1,6 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
 
+import 'features/assignments/domain/assignments_repository.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/consent/domain/consent_repository.dart';
 import 'features/data_export/domain/data_export_repository.dart';
@@ -21,6 +22,8 @@ class AppDependencies {
     required this.gaze,
     required this.frameSource,
     required this.device,
+    required this.assignments,
+    required this.videoStage,
     this.initialInvitationToken = '',
   });
 
@@ -34,6 +37,11 @@ class AppDependencies {
   final GazeEstimator gaze;
   final FrameSource frameSource;
   final DeviceInfo device;
+  final AssignmentsRepository assignments;
+
+  /// Builds the widget that plays a video segment (a `<video>` element in the
+  /// browser, a fake in tests).
+  final VideoStageBuilder videoStage;
 
   /// Invitation code taken from the page address, if any.
   final String initialInvitationToken;

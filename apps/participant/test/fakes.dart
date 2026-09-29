@@ -1,6 +1,7 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:eyetracking_core/testing.dart';
 import 'package:participant_app/app_dependencies.dart';
+import 'package:participant_app/features/assignments/domain/assignments_repository.dart';
 import 'package:participant_app/features/auth/application/auth_controller.dart';
 import 'package:participant_app/features/auth/domain/auth_repository.dart';
 import 'package:participant_app/features/auth/domain/auth_session.dart';
@@ -187,6 +188,50 @@ const sampleForm = DemographicsForm(version: 2, fields: [
   ),
 ]);
 
+class FakeAssignmentsRepository implements AssignmentsRepository {
+  FakeAssignmentsRepository({List<Assignment>? items, PersonalizedContent? content})
+      : items = items ?? [],
+        contentValue = content;
+
+  List<Assignment> items;
+  PersonalizedContent? contentValue;
+  ApiException? submitFailure;
+  final List<({String id, String topic, String? freeText})> submitted = [];
+  int contentCalls = 0;
+
+  @override
+  Future<List<Assignment>> list() async => List.of(items);
+
+  @override
+  Future<Assignment> submitTopic(
+    String assignmentId, {
+    required String topic,
+    String? freeText,
+  }) async {
+    if (submitFailure != null) throw submitFailure!;
+    submitted.add((id: assignmentId, topic: topic, freeText: freeText));
+    final old = items.firstWhere((a) => a.id == assignmentId);
+    final next = Assignment(
+      id: old.id,
+      orderIndex: old.orderIndex,
+      status: AssignmentStatus.contentPending,
+      protocol: old.protocol,
+      topic: topic,
+      topicFreeText: freeText,
+    );
+    items = [for (final a in items) a.id == assignmentId ? next : a];
+    return next;
+  }
+
+  @override
+  Future<PersonalizedContent> content(String assignmentId) async {
+    contentCalls++;
+    final c = contentValue;
+    if (c == null) throw const ApiException('Not found.', statusCode: 404);
+    return c;
+  }
+}
+
 class TestBed {
   TestBed({
     FakeHomeRepository? home,
@@ -194,7 +239,11 @@ class TestBed {
     FakeProfileRepository? profile,
     FakeDemographicsRepository? demographics,
     FakeSessionRepository? sessions,
+    FakeAssignmentsRepository? assignments,
+    VideoStageBuilder? videoStage,
   })  : authRepository = FakeAuthRepository(),
+        assignments = assignments ?? FakeAssignmentsRepository(),
+        videoStage = videoStage ?? FakeVideoStage.builder(),
         home = home ?? FakeHomeRepository(),
         consent = consent ?? FakeConsentRepository(),
         profile = profile ?? FakeProfileRepository(),
@@ -214,6 +263,8 @@ class TestBed {
   final FakeDemographicsRepository demographics;
   final FakeDataExportRepository dataExport;
   final FakeSessionRepository sessions;
+  final FakeAssignmentsRepository assignments;
+  final VideoStageBuilder videoStage;
   final FakeGazeEstimator gaze;
   final FakeFrameSource frameSource;
 
@@ -228,5 +279,7 @@ class TestBed {
         gaze: gaze,
         frameSource: frameSource,
         device: const DeviceInfo(platform: 'web', userAgent: 'test-agent'),
+        assignments: assignments,
+        videoStage: videoStage,
       );
 }

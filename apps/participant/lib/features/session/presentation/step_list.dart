@@ -3,25 +3,36 @@ import 'package:flutter/material.dart';
 
 import '../domain/session_step.dart';
 
-/// The visible list of steps: Camera check, Calibration, Validation,
-/// Baseline, Summary. Done steps carry a tick, the current one is filled.
+/// The visible list of steps. A measurement-only session shows Camera check,
+/// Calibration, Validation, Baseline and Summary; a session with a practice
+/// protocol adds Practice and Post observation and ends with the comfort
+/// question and the summary. Done steps carry a tick, the current one is
+/// filled.
 class StepList extends StatelessWidget {
-  const StepList({super.key, required this.current, this.compact = false});
+  const StepList({
+    super.key,
+    required this.current,
+    this.compact = false,
+    this.protocol = false,
+  });
 
   final SessionStep current;
 
   /// Numbered squares only, for narrow bars.
   final bool compact;
 
+  /// The session runs a practice protocol.
+  final bool protocol;
+
   @override
   Widget build(BuildContext context) {
-    final index = current.listIndex;
-    final steps = SessionStep.listed;
+    final steps = SessionStep.listFor(protocol: protocol);
+    final index = current.indexIn(protocol: protocol);
     if (compact) {
       return Semantics(
         label: index < 0
             ? 'Before the first step'
-            : 'Step ${index + 1} of ${steps.length}: ${current.label}',
+            : 'Step ${index + 1} of ${steps.length}: ${current.labelIn(protocol: protocol)}',
         excludeSemantics: true,
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -41,7 +52,10 @@ class StepList extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (var i = 0; i < steps.length; i++) ...[
-          _Chip(label: steps[i].label, state: _stateOf(i, index)),
+          _Chip(
+            label: steps[i].labelIn(protocol: protocol),
+            state: _stateOf(i, index),
+          ),
           if (i < steps.length - 1)
             const Icon(Icons.arrow_forward, size: 14, color: AppColors.textMuted),
         ],

@@ -25,11 +25,14 @@ abstract class SessionRepository {
     List<ValidationTargetCapture> targets,
   );
 
+  /// Posts the stimulus layout used to classify the following samples. For
+  /// a practice stage the layout also carries its [stageIndex].
   Future<void> postLayout(
     String sessionId,
     SessionSegmentName segment,
-    StimulusLayout layout,
-  );
+    StimulusLayout layout, {
+    int? stageIndex,
+  });
 
   Future<SampleAck> postSamples(String sessionId, List<RawGazeSample> samples);
 
@@ -41,6 +44,19 @@ abstract class SessionRepository {
   });
 
   Future<SessionSummary> summary(String sessionId);
+
+  /// Step 3: the trials of one finished stage, in one batch.
+  Future<TrialAck> postTrials(String sessionId, List<TrialRecord> trials);
+
+  /// Step 3: asks the server what to do after a stage.
+  Future<StageDecision> stageResult(
+    String sessionId,
+    int stageIndex, {
+    int? comfortValue,
+  });
+
+  /// Step 3: an interaction or comprehension answer.
+  Future<AnswerResult> postAnswer(String sessionId, AnswerRequest answer);
 
   /// The participant's own sessions, newest first.
   Future<List<SessionSummary>> mine();

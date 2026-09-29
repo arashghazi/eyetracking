@@ -1,5 +1,7 @@
 import 'gaze.dart';
 import 'layout.dart';
+import 'practice.dart';
+import 'protocol.dart';
 
 double? _d(Object? v) => (v as num?)?.toDouble();
 int _i(Object? v) => (v as num?)?.toInt() ?? 0;
@@ -119,6 +121,7 @@ class SessionCreateRequest {
     required this.screen,
     required this.camera,
     required this.gazeModel,
+    this.assignmentId,
   });
 
   final DeviceInfo device;
@@ -126,12 +129,19 @@ class SessionCreateRequest {
   final CameraInfo camera;
   final GazeInfo gazeModel;
 
+  /// Set when the session runs a practice protocol (step 3).
+  final String? assignmentId;
+
   Map<String, dynamic> toJson() => {
         'device': device.toJson(),
         'screen': screen.toJson(),
         'camera': camera.toJson(),
         'gaze_model': gazeModel.toModelJson(),
+        if (assignmentId != null) 'assignment_id': _wireId(assignmentId!),
       };
+
+  /// Ids are numbers on the server; send them as numbers when they are.
+  static Object _wireId(String id) => int.tryParse(id) ?? id;
 }
 
 class CameraCheckRequest {
@@ -504,6 +514,10 @@ class SessionSummary {
     this.segments = const [],
     this.eventsCount = 0,
     this.notes = const [],
+    this.assignmentId,
+    this.protocol,
+    this.outcomes,
+    this.stages = const [],
   });
 
   final String id;
@@ -526,6 +540,14 @@ class SessionSummary {
   final List<SessionSegmentInfo> segments;
   final int eventsCount;
   final List<String> notes;
+
+  /// Step 3: the assignment and the frozen protocol version this session ran.
+  final String? assignmentId;
+  final ProtocolRef? protocol;
+
+  /// Gaze, comprehension or number task, comfort and improvement.
+  final SessionOutcomes? outcomes;
+  final List<StageRecord> stages;
 
   bool get isEnded => status == SessionStatus.ended;
 
@@ -552,6 +574,13 @@ class SessionSummary {
       ],
       eventsCount: _i(json['events_count']),
       notes: _strings(json['notes']),
+      assignmentId: json['assignment_id']?.toString(),
+      protocol: ProtocolRef.maybeFromJson(json['protocol']),
+      outcomes: SessionOutcomes.maybeFromJson(json['outcomes']),
+      stages: [
+        for (final s in (json['stages'] as List<dynamic>? ?? const []))
+          StageRecord.fromJson(s as Map<String, dynamic>),
+      ],
     );
   }
 }

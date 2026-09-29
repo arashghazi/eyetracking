@@ -24,9 +24,32 @@ class ApiSessionRepository implements SessionRepository {
 
   @override
   Future<SessionSummary> create(SessionCreateRequest request) async =>
-      SessionSummary.fromJson(
-        await _api.postObject('/me/sessions', request.toJson()),
-      );
+      _summary(await _api.postObject('/me/sessions', request.toJson()));
+
+  /// A protocol's real face image may be a signed path on the service; it is
+  /// shown from the app's own origin, so it gets the service address.
+  SessionSummary _summary(Map<String, dynamic> json) {
+    final protocol = json['protocol'];
+    final definition = protocol is Map ? protocol['definition'] : null;
+    final gradual = definition is Map ? definition['gradual'] : null;
+    final url = gradual is Map ? gradual['real_face_media_url'] : null;
+    if (url is! String || !url.startsWith('/')) {
+      return SessionSummary.fromJson(json);
+    }
+    return SessionSummary.fromJson({
+      ...json,
+      'protocol': {
+        ...(protocol as Map<String, dynamic>),
+        'definition': {
+          ...(definition as Map<String, dynamic>),
+          'gradual': {
+            ...(gradual as Map<String, dynamic>),
+            'real_face_media_url': _api.resolveUrl(url),
+          },
+        },
+      },
+    });
+  }
 
   @override
   Future<SessionSummary> cameraCheck(
@@ -65,11 +88,13 @@ class ApiSessionRepository implements SessionRepository {
   Future<void> postLayout(
     String sessionId,
     SessionSegmentName segment,
-    StimulusLayout layout,
-  ) async {
+    StimulusLayout layout, {
+    int? stageIndex,
+  }) async {
     await _api.postObject('${_base(sessionId)}/layout', {
       'segment': segment.wire,
       'layout': layout.toJson(),
+      'stage_index': ?stageIndex,
     });
   }
 
@@ -101,7 +126,40 @@ class ApiSessionRepository implements SessionRepository {
 
   @override
   Future<SessionSummary> summary(String sessionId) async =>
-      SessionSummary.fromJson(await _api.getObject(_base(sessionId)));
+      _summary(await _api.getObject(_base(sessionId)));
+
+  @override
+  Future<TrialAck> postTrials(
+    String sessionId,
+    List<TrialRecord> trials,
+  ) async =>
+      TrialAck.fromJson(
+        await _api.postObject('${_base(sessionId)}/trials', {
+          'trials': [for (final t in trials) t.toJson()],
+        }),
+      );
+
+  @override
+  Future<StageDecision> stageResult(
+    String sessionId,
+    int stageIndex, {
+    int? comfortValue,
+  }) async =>
+      StageDecision.fromJson(
+        await _api.postObject('${_base(sessionId)}/stage-result', {
+          'stage_index': stageIndex,
+          'comfort_value': ?comfortValue,
+        }),
+      );
+
+  @override
+  Future<AnswerResult> postAnswer(
+    String sessionId,
+    AnswerRequest answer,
+  ) async =>
+      AnswerResult.fromJson(
+        await _api.postObject('${_base(sessionId)}/answers', answer.toJson()),
+      );
 
   @override
   Future<List<SessionSummary>> mine() async => [

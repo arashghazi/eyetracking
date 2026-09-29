@@ -1,6 +1,8 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
+import 'outcomes_view.dart';
+
 /// What the participant sees after a session: how much of it could be used,
 /// and where attention went. Missing data is never presented as "not looking".
 class SummaryView extends StatelessWidget {
@@ -27,6 +29,13 @@ class SummaryView extends StatelessWidget {
             key: Key('synthetic-note'),
             kind: BannerKind.info,
             message: syntheticNote,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (summary.outcomes != null) ...[
+          OutcomesView(
+            outcomes: summary.outcomes!,
+            path: summary.protocol?.path,
           ),
           const SizedBox(height: 12),
         ],

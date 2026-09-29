@@ -13,9 +13,12 @@ import 'summary_step.dart';
 /// The guided session, one step at a time. Pass a [controller] in tests;
 /// otherwise one is built from the app dependencies.
 class SessionFlowScreen extends StatefulWidget {
-  const SessionFlowScreen({super.key, this.controller});
+  const SessionFlowScreen({super.key, this.controller, this.assignment});
 
   final SessionFlowController? controller;
+
+  /// The assignment to run; null for a measurement-only session.
+  final Assignment? assignment;
 
   @override
   State<SessionFlowScreen> createState() => _SessionFlowScreenState();
@@ -39,6 +42,9 @@ class _SessionFlowScreenState extends State<SessionFlowScreen> {
         gaze: deps.gaze,
         frames: deps.frameSource,
         device: deps.device,
+        assignment: widget.assignment,
+        assignments: deps.assignments,
+        profile: deps.profile,
       );
       _owns = true;
     }

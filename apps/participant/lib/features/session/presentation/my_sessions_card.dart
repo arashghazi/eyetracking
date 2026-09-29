@@ -24,6 +24,13 @@ class StartSessionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Start a session', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 2),
+            Text(
+              'Camera and calibration check only',
+              key: const Key('free-session-label'),
+              style: theme.textTheme.labelMedium
+                  ?.copyWith(color: AppColors.tealDark),
+            ),
             const SizedBox(height: 4),
             Text(
               enabled

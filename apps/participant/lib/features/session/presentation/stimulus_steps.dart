@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../application/session_flow_controller.dart';
 import '../domain/session_step.dart';
 import '../domain/stimulus_geometry.dart';
+import 'practice_stage.dart';
 import 'result_panels.dart';
 import 'stimulus_stage.dart';
 
@@ -18,6 +19,7 @@ class StimulusStepBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
+    if (c.practiceVisible) return PracticeStage(controller: c);
     if (c.stimulusVisible && c.phase != StepPhase.paused) {
       return StimulusStage(controller: c);
     }
@@ -50,6 +52,8 @@ class StimulusStepBody extends StatelessWidget {
     return switch (c.step) {
       SessionStep.calibration => _calibrationPanel(c),
       SessionStep.validation => _validationPanel(c),
+      SessionStep.practice => _practicePanel(c),
+      SessionStep.post => _postPanel(c),
       _ => _baselinePanel(c),
     };
   }
@@ -100,11 +104,47 @@ class StimulusStepBody extends StatelessWidget {
   Widget _baselinePanel(SessionFlowController c) => _Instructions(
         title: 'Baseline',
         text: 'Next you will see a face for '
-            '${c.timing.baseline.inSeconds} seconds. Just look at it '
+            '${c.baselineDuration.inSeconds} seconds. Just look at it '
             'naturally. There is nothing to do and nothing will be asked.',
         buttonKey: 'baseline-start',
         buttonLabel: 'Start',
         onStart: c.startBaseline,
+        busy: c.busy,
+      );
+
+  Widget _practicePanel(SessionFlowController c) {
+    final again = c.gradual != null || c.interest != null;
+    final text = c.isInterest
+        ? 'You will watch a short video conversation'
+            '${c.assignment?.topic == null ? '' : ' about ${c.assignment!.topic}'}. '
+            'At the end of a part you may be asked to choose an answer. '
+            'Afterwards there are a few simple questions. Nothing here is a '
+            'test, and you can pause or stop at any time.'
+        : 'You will see a face and a number near it. Look at the picture, '
+            'then give us the number. It is not a test: there is no score, '
+            'and a wrong answer simply moves on. After each round we ask how '
+            'you feel. You can pause or stop at any time.';
+    return _Instructions(
+      title: 'Practice',
+      text: again ? 'Ready to carry on? $text' : text,
+      buttonKey: 'practice-start',
+      buttonLabel: again ? 'Continue practice' : 'Start practice',
+      onStart: c.startPractice,
+      busy: c.busy,
+    );
+  }
+
+  Widget _postPanel(SessionFlowController c) => _Instructions(
+        title: 'Post observation',
+        text: c.isInterest
+            ? 'You will watch one more short video. Just watch it naturally. '
+                'There is nothing to do and nothing will be asked.'
+            : 'You will see the picture for '
+                '${c.postDuration.inSeconds} seconds. Just look at it '
+                'naturally. There is nothing to do and nothing will be asked.',
+        buttonKey: 'post-start',
+        buttonLabel: 'Start',
+        onStart: c.startPost,
         busy: c.busy,
       );
 }

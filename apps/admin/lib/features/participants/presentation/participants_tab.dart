@@ -7,9 +7,16 @@ import 'participant_detail_screen.dart';
 import 'yes_no.dart';
 
 class ParticipantsTab extends StatefulWidget {
-  const ParticipantsTab({super.key, required this.studyId});
+  const ParticipantsTab({
+    super.key,
+    required this.studyId,
+    this.canEdit = true,
+  });
 
   final int studyId;
+
+  /// Researchers may assign protocols; analysts only read.
+  final bool canEdit;
 
   @override
   State<ParticipantsTab> createState() => _ParticipantsTabState();
@@ -44,6 +51,7 @@ class _ParticipantsTabState extends State<ParticipantsTab>
         builder: (_) => ParticipantDetailScreen(
           studyId: widget.studyId,
           initial: record,
+          canEdit: widget.canEdit,
         ),
       ),
     );

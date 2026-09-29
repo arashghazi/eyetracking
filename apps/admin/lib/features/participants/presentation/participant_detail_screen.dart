@@ -2,6 +2,7 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
+import '../../assignments/presentation/assignments_section.dart';
 import '../application/participants_controller.dart';
 import 'yes_no.dart';
 
@@ -10,10 +11,14 @@ class ParticipantDetailScreen extends StatefulWidget {
     super.key,
     required this.studyId,
     required this.initial,
+    this.canEdit = true,
   });
 
   final int studyId;
   final ParticipantRecord initial;
+
+  /// Researchers may assign protocols and attach content.
+  final bool canEdit;
 
   @override
   State<ParticipantDetailScreen> createState() =>
@@ -75,6 +80,12 @@ class _ParticipantDetailScreenState extends State<ParticipantDetailScreen> {
               _Section(
                 title: 'Demographics',
                 children: _demographicsRows(r),
+              ),
+              const SizedBox(height: 12),
+              AssignmentsSection(
+                studyId: widget.studyId,
+                code: r.code,
+                canEdit: widget.canEdit,
               ),
               const SizedBox(height: 12),
               _IdentityCard(controller: c),

@@ -32,7 +32,7 @@ class SessionTopBar extends StatelessWidget {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: LayoutBuilder(builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 760;
+          final wide = constraints.maxWidth >= (c.hasProtocol ? 1000 : 760);
           final medium = constraints.maxWidth >= 480;
           return Row(
             children: [
@@ -46,9 +46,13 @@ class SessionTopBar extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (wide)
-                          StepList(current: c.step)
+                          StepList(current: c.step, protocol: c.hasProtocol)
                         else ...[
-                          StepList(current: c.step, compact: true),
+                          StepList(
+                            current: c.step,
+                            compact: true,
+                            protocol: c.hasProtocol,
+                          ),
                           if (medium) ...[
                             const SizedBox(width: 8),
                             Text(

@@ -76,6 +76,16 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 _Header(detail: detail),
                 const SizedBox(height: 12),
                 _Cards(summary: detail.summary),
+                if (detail.summary.outcomes != null) ...[
+                  const SizedBox(height: 12),
+                  _ImprovementLine(
+                    improvement: detail.summary.outcomes!.improvement,
+                  ),
+                ],
+                if (detail.summary.protocol != null) ...[
+                  const SizedBox(height: 12),
+                  _ProtocolSection(summary: detail.summary),
+                ],
                 const SizedBox(height: 12),
                 _DeviceSection(detail: detail),
                 const SizedBox(height: 12),
@@ -89,6 +99,19 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 _CoverageSection(summary: detail.summary),
                 const SizedBox(height: 12),
                 _SegmentsSection(summary: detail.summary),
+                if (detail.summary.protocol != null) ...[
+                  const SizedBox(height: 12),
+                  _StagesSection(stages: detail.summary.stages),
+                  const SizedBox(height: 12),
+                  _TrialsSection(trials: detail.trials),
+                  const SizedBox(height: 12),
+                  _AnswersSection(answers: detail.answers),
+                  const SizedBox(height: 12),
+                  _ComfortAnswersSection(
+                    answers: detail.comfortAnswers,
+                    comfort: detail.summary.protocol?.definition?.comfort,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _EventsSection(events: detail.events),
                 const SizedBox(height: 12),
@@ -255,6 +278,12 @@ class _Cards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eye = summary.eyeRegionAttention;
+    final o = summary.outcomes;
+    final gradual = summary.protocol?.path == ProtocolPath.gradualFace ||
+        (summary.protocol?.path == null &&
+            o != null &&
+            o.numberTask.trials > 0 &&
+            o.comprehension.answered == 0);
     final cards = [
       _MetricCard(
         keyName: 'card-face',
@@ -275,18 +304,11 @@ class _Cards extends StatelessWidget {
                 : eye.reason!),
         noteKey: 'eye-reason',
       ),
-      const _MetricCard(
-        keyName: 'card-comprehension',
-        title: 'Comprehension',
-        value: '—',
-        note: 'Comes with the practice step.',
-      ),
-      const _MetricCard(
-        keyName: 'card-comfort',
-        title: 'Comfort',
-        value: '—',
-        note: 'Comes with the practice step.',
-      ),
+      if (gradual)
+        _numberTaskCard(o!.numberTask)
+      else
+        _comprehensionCard(o),
+      _comfortCard(o),
     ];
     return LayoutBuilder(builder: (context, constraints) {
       final w = constraints.maxWidth;
@@ -299,6 +321,75 @@ class _Cards extends StatelessWidget {
       );
     });
   }
+}
+
+Widget _comprehensionCard(SessionOutcomes? o) {
+  if (o == null) {
+    return const _MetricCard(
+      keyName: 'card-comprehension',
+      title: 'Comprehension',
+      value: '—',
+      note: 'No practice was run in this session.',
+    );
+  }
+  final c = o.comprehension;
+  if (c.answered == 0) {
+    return const _MetricCard(
+      keyName: 'card-comprehension',
+      title: 'Comprehension',
+      value: '—',
+      note: 'No comprehension question was answered.',
+    );
+  }
+  return _MetricCard(
+    keyName: 'card-comprehension',
+    title: 'Comprehension',
+    value: '${c.correct} of ${c.answered}',
+    note: '${formatPercent(c.share)} of the questions answered correctly.',
+  );
+}
+
+Widget _numberTaskCard(NumberTaskOutcome t) {
+  if (t.trials == 0) {
+    return const _MetricCard(
+      keyName: 'card-number-task',
+      title: 'Number task',
+      value: '—',
+      note: 'No number was shown.',
+    );
+  }
+  return _MetricCard(
+    keyName: 'card-number-task',
+    title: 'Number task',
+    value: '${t.correct} of ${t.trials}',
+    note: '${formatPercent(t.share)} matched · '
+        '${t.stagesCompleted} stage${t.stagesCompleted == 1 ? '' : 's'} completed.',
+  );
+}
+
+Widget _comfortCard(SessionOutcomes? o) {
+  final c = o?.comfort;
+  if (c == null || c.answers == 0) {
+    return _MetricCard(
+      keyName: 'card-comfort',
+      title: 'Comfort',
+      value: '—',
+      note: o == null
+          ? 'No practice was run in this session.'
+          : (c!.endedEarly
+              ? 'No comfort answer was given; the session ended early.'
+              : 'No comfort answer was given.'),
+    );
+  }
+  return _MetricCard(
+    keyName: 'card-comfort',
+    title: 'Comfort',
+    value: c.mean == null ? '—' : c.mean!.toStringAsFixed(1),
+    note: 'Average of ${c.answers} answers · lowest ${c.min ?? '-'} · '
+        '${c.lowCount} low'
+        '${c.pauses > 0 ? ' · ${c.pauses} pause${c.pauses == 1 ? '' : 's'}' : ''}'
+        '${c.endedEarly ? ' · ended early' : ''}',
+  );
 }
 
 class _MetricCard extends StatelessWidget {
@@ -348,6 +439,296 @@ class _MetricCard extends StatelessWidget {
 }
 
 // ------------------------------------------------------------------ sections
+
+/// "All three criteria met", "Not met" or "Cannot be judged yet".
+class _ImprovementLine extends StatelessWidget {
+  const _ImprovementLine({required this.improvement});
+
+  final ImprovementOutcome improvement;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (text, icon, color) = switch (improvement.result) {
+      true => ('All three criteria met', Icons.check_circle, AppColors.success),
+      false => ('Not met', Icons.remove_circle_outline, AppColors.warning),
+      null => (
+          'Cannot be judged yet',
+          Icons.hourglass_empty,
+          AppColors.textMuted
+        ),
+    };
+    final reason = outcomeReasonLabel(improvement.reason);
+    String mark(bool? v) => v == null ? 'not known' : (v ? 'yes' : 'no');
+    return _Section(
+      title: 'Improvement',
+      keyName: 'section-improvement',
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                key: const Key('improvement-text'),
+                style: theme.textTheme.titleMedium?.copyWith(color: color),
+              ),
+            ),
+          ],
+        ),
+        if (improvement.result == null && reason.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              reason,
+              key: const Key('improvement-reason'),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ),
+        const SizedBox(height: 8),
+        _Row('Eye share went up', mark(improvement.eyeShareUp)),
+        _Row('Comfort did not get worse', mark(improvement.comfortNotWorse)),
+        _Row('Comprehension or number task kept',
+            mark(improvement.comprehensionMaintained)),
+      ],
+    );
+  }
+}
+
+class _ProtocolSection extends StatelessWidget {
+  const _ProtocolSection({required this.summary});
+
+  final SessionSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = summary.protocol!;
+    return _Section(
+      title: 'Practice protocol',
+      keyName: 'section-protocol',
+      children: [
+        _Row('Protocol', '${p.name} · version ${p.version}'),
+        _Row('Path', p.path?.label ?? '—'),
+        if (summary.assignmentId != null)
+          _Row('Assignment', summary.assignmentId!, mono: true),
+      ],
+    );
+  }
+}
+
+class _StagesSection extends StatelessWidget {
+  const _StagesSection({required this.stages});
+
+  final List<StageRecord> stages;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      title: 'Stages',
+      keyName: 'section-stages',
+      children: [
+        if (stages.isEmpty)
+          const Text('No stage was decided (this path has no stages, or none '
+              'was finished).')
+        else
+          _TableBox(
+            keyName: 'stages-table',
+            child: DataTable(
+              columnSpacing: 20,
+              dataRowMinHeight: 36,
+              dataRowMaxHeight: 40,
+              columns: const [
+                DataColumn(label: Text('Stage'), numeric: true),
+                DataColumn(label: Text('Decision')),
+                DataColumn(label: Text('Reason')),
+                DataColumn(label: Text('Correct'), numeric: true),
+                DataColumn(label: Text('Unusable'), numeric: true),
+                DataColumn(label: Text('Comfort'), numeric: true),
+                DataColumn(label: Text('Trials'), numeric: true),
+              ],
+              rows: [
+                for (final s in stages)
+                  DataRow(cells: [
+                    DataCell(Text('${s.stageIndex + 1}')),
+                    DataCell(Text(s.decision)),
+                    DataCell(Text(s.reason.isEmpty ? '—' : s.reason)),
+                    DataCell(Text(formatPercent(s.correctRatio))),
+                    DataCell(Text(formatPercent(s.invalidShare))),
+                    DataCell(Text(s.comfortValue == null ? '—' : '${s.comfortValue}')),
+                    DataCell(Text('${s.trials}')),
+                  ]),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TrialsSection extends StatelessWidget {
+  const _TrialsSection({required this.trials});
+
+  /// The table shows at most this many rows.
+  static const displayLimit = 100;
+
+  final List<TrialRow> trials;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = trials.take(displayLimit).toList();
+    return _Section(
+      title: 'Trials',
+      keyName: 'section-trials',
+      children: [
+        if (trials.isEmpty)
+          const Text('No trial was recorded.')
+        else ...[
+          Text(
+            trials.length > displayLimit
+                ? 'Showing the first $displayLimit of ${trials.length} trials.'
+                : '${trials.length} trials.',
+            key: const Key('trials-note'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          _TableBox(
+            keyName: 'trials-table',
+            maxHeight: 420,
+            child: DataTable(
+              columnSpacing: 20,
+              dataRowMinHeight: 32,
+              dataRowMaxHeight: 36,
+              headingRowHeight: 38,
+              columns: const [
+                DataColumn(label: Text('Stage'), numeric: true),
+                DataColumn(label: Text('Trial'), numeric: true),
+                DataColumn(label: Text('Time')),
+                DataColumn(label: Text('Shown')),
+                DataColumn(label: Text('Zone')),
+                DataColumn(label: Text('Face level'), numeric: true),
+                DataColumn(label: Text('Answer')),
+                DataColumn(label: Text('Answer time'), numeric: true),
+                DataColumn(label: Text('Correct')),
+              ],
+              rows: [
+                for (final t in shown)
+                  DataRow(cells: [
+                    DataCell(Text('${t.stageIndex + 1}')),
+                    DataCell(Text('${t.trialIndex + 1}')),
+                    DataCell(Text(formatClockMs(t.tMs))),
+                    DataCell(Text(t.numberShown)),
+                    DataCell(Text(t.zone)),
+                    DataCell(Text(t.faceLevel == null ? '—' : '${t.faceLevel}')),
+                    DataCell(Text(t.response ?? 'no answer')),
+                    DataCell(Text(t.responseMs == null ? '—' : '${t.responseMs} ms')),
+                    DataCell(Text(t.correct == null ? '—' : (t.correct! ? 'Yes' : 'No'))),
+                  ]),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AnswersSection extends StatelessWidget {
+  const _AnswersSection({required this.answers});
+
+  final List<AnswerRow> answers;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      title: 'Answers',
+      keyName: 'section-answers',
+      children: [
+        if (answers.isEmpty)
+          const Text('No question was answered.')
+        else
+          _TableBox(
+            keyName: 'answers-table',
+            child: DataTable(
+              columnSpacing: 20,
+              dataRowMinHeight: 36,
+              dataRowMaxHeight: 40,
+              columns: const [
+                DataColumn(label: Text('Time')),
+                DataColumn(label: Text('Kind')),
+                DataColumn(label: Text('Segment')),
+                DataColumn(label: Text('Question')),
+                DataColumn(label: Text('Option')),
+                DataColumn(label: Text('Correct')),
+                DataColumn(label: Text('Next segment')),
+              ],
+              rows: [
+                for (final a in answers)
+                  DataRow(cells: [
+                    DataCell(Text(formatClockMs(a.tMs))),
+                    DataCell(Text(a.kind)),
+                    DataCell(Text(a.segmentId)),
+                    DataCell(Text(a.questionId)),
+                    DataCell(Text(a.option)),
+                    DataCell(Text(a.correct == null ? '—' : (a.correct! ? 'Yes' : 'No'))),
+                    DataCell(Text(a.nextSegmentId ?? '—')),
+                  ]),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ComfortAnswersSection extends StatelessWidget {
+  const _ComfortAnswersSection({required this.answers, this.comfort});
+
+  final List<ComfortAnswerRow> answers;
+  final ComfortConfig? comfort;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      title: 'Comfort answers',
+      keyName: 'section-comfort-answers',
+      children: [
+        if (answers.isEmpty)
+          const Text('No comfort answer was given.')
+        else
+          for (final a in answers)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 96,
+                    child: Text(
+                      formatClockMs(a.tMs),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontFamilyFallback: kMonospaceFallback,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${a.value}'
+                      '${comfort == null ? '' : ' · ${comfort!.labelFor(a.value)}'}'
+                      '${a.stageIndex == null ? '' : ' · after stage ${a.stageIndex! + 1}'}'
+                      '${a.segment == null ? '' : ' · ${a.segment}'}',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      ],
+    );
+  }
+}
 
 class _DeviceSection extends StatelessWidget {
   const _DeviceSection({required this.detail});

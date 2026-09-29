@@ -48,9 +48,10 @@ class _StimulusStageState extends State<StimulusStage>
         fit: StackFit.expand,
         children: [
           if (showFace)
-            CustomPaint(
-              key: const Key('face-stimulus'),
-              painter: FaceStimulusPainter(c.layout!.faceBox),
+            FaceStimulusView(
+              face: c.layout!.faceBox,
+              level: c.observationFaceLevel,
+              realFaceUrl: c.protocol?.gradual?.realFaceMediaUrl,
             ),
           if (dot != null && !countdown)
             AnimatedBuilder(

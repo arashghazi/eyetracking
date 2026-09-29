@@ -1,4 +1,5 @@
 import 'layout.dart';
+import 'practice.dart';
 import 'session.dart';
 
 /// One row of the researcher's session table.
@@ -81,6 +82,9 @@ class SessionDetail {
     this.gazeModel = const {},
     this.events = const [],
     this.validationTargets = const [],
+    this.trials = const [],
+    this.answers = const [],
+    this.comfortAnswers = const [],
   });
 
   final SessionSummary summary;
@@ -94,6 +98,11 @@ class SessionDetail {
   /// Result per validation dot. The server may send them inside `validation`
   /// or next to it as `validation_targets`; both are accepted.
   final List<ValidationTargetResult> validationTargets;
+
+  /// Step 3: what the participant was shown and answered.
+  final List<TrialRow> trials;
+  final List<AnswerRow> answers;
+  final List<ComfortAnswerRow> comfortAnswers;
 
   factory SessionDetail.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic> map(Object? v) =>
@@ -119,6 +128,18 @@ class SessionDetail {
       events: [
         for (final e in (json['events'] as List<dynamic>? ?? const []))
           SessionEventRecord.fromJson(e as Map<String, dynamic>),
+      ],
+      trials: [
+        for (final t in (json['trials'] as List<dynamic>? ?? const []))
+          TrialRow.fromJson(t as Map<String, dynamic>),
+      ],
+      answers: [
+        for (final a in (json['answers'] as List<dynamic>? ?? const []))
+          AnswerRow.fromJson(a as Map<String, dynamic>),
+      ],
+      comfortAnswers: [
+        for (final c in (json['comfort_answers'] as List<dynamic>? ?? const []))
+          ComfortAnswerRow.fromJson(c as Map<String, dynamic>),
       ],
     );
   }

@@ -2,6 +2,9 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
+import '../../assignments/application/assignments_controller.dart';
+import '../../assignments/presentation/assignments_card.dart';
+import '../../assignments/presentation/topic_screen.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../consent/presentation/consent_screen.dart';
 import '../../data_export/presentation/data_export_screen.dart';
@@ -24,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final HomeController _controller;
   late final MySessionsController _sessions;
+  late final AssignmentsController _assignments;
 
   @override
   void initState() {
@@ -31,12 +35,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final deps = AppScope.read(context);
     _controller = HomeController(deps.home)..load();
     _sessions = MySessionsController(deps.sessions)..load();
+    _assignments = AssignmentsController(deps.assignments)..load();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _sessions.dispose();
+    _assignments.dispose();
     super.dispose();
   }
 
@@ -46,7 +52,11 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => screen),
     );
     if (mounted) {
-      await Future.wait([_controller.load(), _sessions.load()]);
+      await Future.wait([
+        _controller.load(),
+        _sessions.load(),
+        _assignments.load(),
+      ]);
     }
   }
 
@@ -98,6 +108,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 _CodeCard(code: overview.code),
                 const SizedBox(height: 12),
                 _ChecklistCard(controller: c, onOpen: _openStep),
+                const SizedBox(height: 12),
+                ListenableBuilder(
+                  listenable: _assignments,
+                  builder: (context, _) => AssignmentsCard(
+                    controller: _assignments,
+                    ready: c.isReady,
+                    onConfirmTopic: (a) => _open(TopicScreen(assignment: a)),
+                    onPrepare: (a) =>
+                        _open(SessionFlowScreen(assignment: a)),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 StartSessionCard(
                   enabled: c.isReady,

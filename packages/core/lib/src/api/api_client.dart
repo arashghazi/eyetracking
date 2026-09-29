@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
@@ -64,6 +65,82 @@ class ApiClient {
   Future<Map<String, dynamic>> putObject(String path, [Object? body]) async =>
       _asObject(await put(path, body));
 
+  /// Makes a path the server sent (such as the signed `/media/<token>` of a
+  /// video) reachable from the browser: a root-relative path is joined to
+  /// the service address, because the app is served from another origin.
+  /// Absolute URLs are returned untouched, exactly as signed.
+  String resolveUrl(String url) =>
+      url.startsWith('/') && !url.startsWith('//') ? '$baseUrl$url' : url;
+
+  /// Uploads [bytes] as the multipart field [field]. [onProgress] receives
+  /// the bytes handed to the HTTP client and the total; in a browser the
+  /// client sends after it has read everything, so this shows preparation
+  /// rather than network progress.
+  Future<Map<String, dynamic>> uploadFile(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    String field = 'file',
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    final token = tokenStore.token;
+    // Hand-built multipart body: this keeps the package free of extra
+    // dependencies and lets us count the bytes as they are handed over.
+    final boundary = 'et-${DateTime.now().microsecondsSinceEpoch}';
+    final safeName = filename.replaceAll(RegExp(r'["\r\n]'), '_');
+    final head = utf8.encode('--$boundary\r\n'
+        'Content-Disposition: form-data; name="$field"; filename="$safeName"\r\n'
+        'Content-Type: $contentType\r\n\r\n');
+    final tail = utf8.encode('\r\n--$boundary--\r\n');
+    final total = head.length + bytes.length + tail.length;
+    final request = http.StreamedRequest('POST', Uri.parse('$baseUrl$path'))
+      ..headers['Content-Type'] = 'multipart/form-data; boundary=$boundary'
+      ..headers['Accept'] = 'application/json'
+      ..contentLength = total;
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    unawaited(() async {
+      var sent = 0;
+      void add(List<int> chunk) {
+        request.sink.add(chunk);
+        sent += chunk.length;
+        onProgress?.call(sent, total);
+      }
+
+      add(head);
+      const chunkSize = 64 * 1024;
+      for (var i = 0; i < bytes.length; i += chunkSize) {
+        add(bytes.sublist(i, math.min(i + chunkSize, bytes.length)));
+        await Future<void>.delayed(Duration.zero);
+      }
+      add(tail);
+      await request.sink.close();
+    }());
+    final http.Response response;
+    try {
+      response = await http.Response.fromStream(
+        await _http.send(request).timeout(const Duration(minutes: 10)),
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        'The upload took too long. Check the connection and try again.',
+      );
+    } on Exception {
+      throw const ApiException(
+        'Could not reach the server. Check your connection and try again.',
+      );
+    }
+    final decoded = _decode(response);
+    final status = response.statusCode;
+    if (status >= 200 && status < 300) return _asObject(decoded);
+    if (status == 401 && token != null) onUnauthorized?.call();
+    throw ApiException(
+      _errorMessage(status, decoded),
+      statusCode: status,
+      body: decoded,
+    );
+  }
+
   void close() => _http.close();
 
   Map<String, dynamic> _asObject(Object? value) {
@@ -106,7 +183,11 @@ class ApiClient {
     if (status >= 200 && status < 300) return decoded;
     if (status == 404 && nullOn404) return null;
     if (status == 401 && token != null) onUnauthorized?.call();
-    throw ApiException(_errorMessage(status, decoded), statusCode: status);
+    throw ApiException(
+      _errorMessage(status, decoded),
+      statusCode: status,
+      body: decoded,
+    );
   }
 
   Object? _decode(http.Response response) {
@@ -122,6 +203,10 @@ class ApiClient {
     if (decoded is Map<String, dynamic>) {
       final detail = decoded['detail'];
       if (detail is String && detail.isNotEmpty) return detail;
+      if (detail is Map<String, dynamic>) {
+        final text = detail['message'] ?? detail['detail'];
+        if (text is String && text.isNotEmpty) return text;
+      }
       if (detail is List) {
         // FastAPI validation errors: [{loc: [...], msg: "..."}]
         final parts = detail.map((e) {

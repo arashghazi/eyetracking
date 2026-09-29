@@ -3,12 +3,21 @@ import 'dart:math' as math;
 
 import 'package:eyetracking_core/eyetracking_core.dart';
 
+import '../../assignments/domain/assignments_repository.dart';
+import '../../profile/domain/profile_repository.dart';
+import '../domain/number_placement.dart';
 import '../domain/session_repository.dart';
 import '../domain/session_step.dart';
 import '../domain/stimulus_geometry.dart';
+import 'gradual_practice_controller.dart';
+import 'interest_practice_controller.dart';
+import 'segment_recorder.dart';
 
 /// Runs the guided session: introduction, camera check, calibration,
-/// validation, baseline observation and summary.
+/// validation, baseline observation and summary. With an [assignment] the
+/// session runs a practice protocol (step 3): after the baseline come the
+/// practice, a prompt-free post observation, the comfort question and the
+/// summary.
 ///
 /// One instance drives one session. All work that can be interrupted (a
 /// capture, the baseline stream) runs under a run token: pause, end, a device
@@ -21,13 +30,28 @@ class SessionFlowController extends SafeChangeNotifier {
     required this._frames,
     required this._device,
     this.timing = const SessionTiming(),
-  }) : _repo = repository;
+    this.assignment,
+    this._assignments,
+    ProfileRepository? profile,
+    math.Random? random,
+  })  : _repo = repository,
+        _profileRepo = profile,
+        _random = random ?? math.Random() {
+    _recorder = _FlowRecorder(this);
+  }
 
   final SessionRepository _repo;
   final GazeEstimator _gaze;
   final FrameSource _frames;
   final DeviceInfo _device;
   final SessionTiming timing;
+
+  /// The assignment this session runs; null for a measurement-only session.
+  final Assignment? assignment;
+  final AssignmentsRepository? _assignments;
+  final ProfileRepository? _profileRepo;
+  final math.Random _random;
+  late final SegmentRecorder _recorder;
 
   // ------------------------------------------------------------- state
 
@@ -53,6 +77,15 @@ class SessionFlowController extends SafeChangeNotifier {
   FaceLayout? _faceLayout;
   List<ValidationTargetSpec> _validationSpecs = const [];
   ValidationResult? _validation;
+
+  // Step 3
+  Profile? _profileData;
+  ProtocolDefinition? _protocolDef;
+  GradualPracticeController? _gradual;
+  InterestPracticeController? _interest;
+  bool _baselineDone = false;
+  SessionSegmentName? _openSegment;
+  SessionSegmentName _observation = SessionSegmentName.baseline;
 
   int _baselineElapsedMs = 0;
   bool _faceLost = false;
@@ -120,10 +153,65 @@ class SessionFlowController extends SafeChangeNotifier {
   bool get allowContinueWithoutValidation =>
       _settings?.allowContinueWithoutValidation ?? false;
 
-  double get baselineProgress {
-    final total = timing.baseline.inMilliseconds;
+  /// True when the session runs a practice protocol.
+  bool get hasProtocol => assignment != null;
+
+  /// The frozen protocol version this session runs (after it was created).
+  ProtocolDefinition? get protocol => _protocolDef;
+  bool get isInterest => _protocolDef?.path == ProtocolPath.interestConversation;
+  Profile? get profile => _profileData;
+  GradualPracticeController? get gradual => _gradual;
+  InterestPracticeController? get interest => _interest;
+
+  /// Captions are shown only for participants who asked for them.
+  bool get showCaptions => _profileData?.accessibilityNeeds
+          .any((n) => n.toLowerCase().contains('caption')) ??
+      false;
+
+  /// Height kept free at the bottom for the response controls.
+  double get practiceBottomInset =>
+      hasProtocol ? practiceBarReserve(_screen) : 16;
+
+  /// Length of the baseline: the protocol's, or the plain default.
+  Duration get baselineDuration => _protocolDef == null
+      ? timing.baseline
+      : timing.seconds(_protocolDef!.baselineSeconds);
+
+  /// Length of the post observation.
+  Duration get postDuration => _protocolDef == null
+      ? timing.baseline
+      : timing.seconds(_protocolDef!.postSeconds);
+
+  Duration get _observationDuration => _observation == SessionSegmentName.post
+      ? postDuration
+      : baselineDuration;
+
+  double get observationProgress {
+    final total = _observationDuration.inMilliseconds;
     return total == 0 ? 1 : (_baselineElapsedMs / total).clamp(0.0, 1.0);
   }
+
+  double get baselineProgress => observationProgress;
+
+  /// Level of the face drawn during the observation: the placeholder face
+  /// for the baseline, the face of the last practice stage for the post
+  /// observation.
+  int get observationFaceLevel {
+    if (_step == SessionStep.post) {
+      final g = _gradual;
+      if (g != null) return g.stage.faceLevel;
+    }
+    return 2;
+  }
+
+  /// The practice or the interest post video is on the screen.
+  bool get practiceVisible =>
+      _phase == StepPhase.running &&
+      (_step == SessionStep.practice ||
+          (_step == SessionStep.post && isInterest));
+
+  /// The comfort question at the end of a protocol session is shown.
+  bool get askingComfort => _step == SessionStep.summary && _phase == StepPhase.comfort;
 
   bool get faceLost => _faceLost;
   int get storedSamples => _storedSamples;
@@ -156,14 +244,20 @@ class SessionFlowController extends SafeChangeNotifier {
   bool get stimulusVisible =>
       (_step == SessionStep.calibration || _step == SessionStep.validation)
           ? (_phase == StepPhase.countdown || _phase == StepPhase.capturing)
-          : (_step == SessionStep.baseline &&
+          : (_isObservationStep &&
               (_phase == StepPhase.running || _phase == StepPhase.paused));
+
+  /// Baseline, and the post observation of the gradual path: a face and a
+  /// progress bar, nothing to do.
+  bool get _isObservationStep =>
+      _step == SessionStep.baseline ||
+      (_step == SessionStep.post && !isInterest);
 
   bool get hasActiveSession =>
       _session != null &&
       !_ended &&
       _step != SessionStep.intro &&
-      _step != SessionStep.summary;
+      (_step != SessionStep.summary || _phase == StepPhase.comfort);
 
   /// Records the current screen; used when the session is created and when
   /// stimuli are laid out. Does not notify (safe to call while building).
@@ -187,10 +281,18 @@ class SessionFlowController extends SafeChangeNotifier {
       _gazeInfo = await _gaze.info();
     } catch (e) {
       _error = userMessage(e);
-    } finally {
-      _busy = false;
-      notifyListeners();
     }
+    // The profile (response mode, captions) only shapes the practice; the
+    // session can start without it.
+    if (hasProtocol && _profileData == null && _profileRepo != null) {
+      try {
+        _profileData = await _profileRepo.load();
+      } catch (_) {
+        // Defaults: number entry, no captions.
+      }
+    }
+    _busy = false;
+    notifyListeners();
   }
 
   /// Starts the camera and creates the session on the server.
@@ -215,7 +317,19 @@ class SessionFlowController extends SafeChangeNotifier {
             h: _frames.frameHeight == 0 ? 480 : _frames.frameHeight,
           ),
           gazeModel: _gazeInfo!,
+          assignmentId: assignment?.id,
         ));
+        if (hasProtocol) {
+          _protocolDef =
+              _session!.protocol?.definition ?? assignment!.protocol.definition;
+          if (_protocolDef == null) {
+            await _frames.stop();
+            _error = 'The session was created without its protocol. Please '
+                'try again or ask your researcher.';
+            _session = null;
+            return;
+          }
+        }
         _frames.restartClock();
         _eventSub ??= _frames.events.listen(_onFrameSourceEvent);
         _step = SessionStep.cameraCheck;
@@ -433,6 +547,7 @@ class SessionFlowController extends SafeChangeNotifier {
     final faceLayout = buildFaceLayout(
       screen: _screen,
       residualPx: calibration.residualPxMedian,
+      bottomInset: practiceBottomInset,
     );
     _faceLayout = faceLayout;
     _validationSpecs = validationTargets(faceLayout.layout);
@@ -498,35 +613,63 @@ class SessionFlowController extends SafeChangeNotifier {
     final v = _validation;
     if (v == null) return;
     if (!v.passed && !allowContinueWithoutValidation) return;
-    _step = SessionStep.baseline;
+    // After a device change the baseline is already done: carry on with the
+    // practice (or the post observation) where the participant left off.
+    _step = _baselineDone
+        ? (_practiceEnded ? SessionStep.post : SessionStep.practice)
+        : SessionStep.baseline;
     _phase = StepPhase.idle;
     _error = null;
     notifyListeners();
   }
 
-  // ---------------------------------------------------------- baseline
+  // ------------------------------------------------ baseline and post
 
   /// Posts the layout, opens the baseline segment and streams gaze samples
   /// for the baseline duration.
-  Future<void> startBaseline() async {
+  Future<void> startBaseline() =>
+      _startObservation(SessionSegmentName.baseline, SessionStep.baseline);
+
+  /// Starts the post observation of the gradual path: the face of the last
+  /// practice stage, prompt-free, for the protocol's post duration. On the
+  /// interest path the post segment video plays instead.
+  Future<void> startPost() async {
+    if (_step != SessionStep.post || _phase != StepPhase.idle) return;
+    if (isInterest) {
+      final i = _interest;
+      if (i == null) return;
+      _error = null;
+      _phase = StepPhase.running;
+      notifyListeners();
+      i.startPost();
+      return;
+    }
+    await _startObservation(SessionSegmentName.post, SessionStep.post);
+  }
+
+  Future<void> _startObservation(
+    SessionSegmentName segment,
+    SessionStep expected,
+  ) async {
     final session = _session;
     final layout = this.layout;
     if (session == null || layout == null) return;
-    if (_step != SessionStep.baseline || _phase != StepPhase.idle) return;
+    if (_step != expected || _phase != StepPhase.idle) return;
     final token = ++_token;
     _busy = true;
     _error = null;
     notifyListeners();
     try {
       if (!_frames.isActive && !await _startCamera()) return;
-      await _repo.postLayout(session.id, SessionSegmentName.baseline, layout);
+      await _repo.postLayout(session.id, segment, layout);
       if (!_alive(token)) return;
       await _repo.postEvent(
         session.id,
         SessionEventType.segmentStart,
         tMs: _frames.nowMs,
-        payload: {'segment': SessionSegmentName.baseline.wire},
+        payload: {'segment': segment.wire},
       );
+      _openSegment = segment;
     } catch (e) {
       _error = userMessage(e);
       return;
@@ -535,6 +678,7 @@ class SessionFlowController extends SafeChangeNotifier {
       notifyListeners();
     }
     if (!_alive(token)) return;
+    _observation = segment;
     _baselineElapsedMs = 0;
     _baselineWatch
       ..reset()
@@ -542,24 +686,27 @@ class SessionFlowController extends SafeChangeNotifier {
     _faceLost = false;
     _gazeFailures = 0;
     _streamProblem = null;
-    _storedSamples = 0;
-    _invalidSamples = 0;
+    if (segment == SessionSegmentName.baseline) {
+      _storedSamples = 0;
+      _invalidSamples = 0;
+    }
     _phase = StepPhase.running;
     notifyListeners();
-    unawaited(_runBaseline(token));
+    unawaited(_runObservation(token));
   }
 
-  Future<void> _runBaseline(int token) async {
+  Future<void> _runObservation(int token) async {
+    final duration = _observationDuration;
     _lastFaceMs = _frames.nowMs;
-    _startPump(token, handler: (frame, sample) => _onBaselineFrame(frame, sample));
-    while (_alive(token) && _baselineWatch.elapsed < timing.baseline) {
+    _startPump(token, handler: _onStreamFrame);
+    while (_alive(token) && _baselineWatch.elapsed < duration) {
       await Future<void>.delayed(timing.progressTick);
       if (!_alive(token)) return;
       _baselineElapsedMs = _baselineWatch.elapsedMilliseconds;
       notifyListeners();
     }
     if (!_alive(token)) return;
-    _baselineElapsedMs = timing.baseline.inMilliseconds;
+    _baselineElapsedMs = duration.inMilliseconds;
     await _stopPump();
     await _inFlight;
     if (!_alive(token)) return;
@@ -567,12 +714,28 @@ class SessionFlowController extends SafeChangeNotifier {
     await _flushSamples();
     if (!_alive(token)) return;
     await _sendEvent(SessionEventType.segmentEnd,
-        payload: {'segment': SessionSegmentName.baseline.wire});
+        payload: {'segment': _observation.wire});
+    _openSegment = null;
     if (!_alive(token)) return;
-    await _enterSummary();
+    if (_observation == SessionSegmentName.baseline) {
+      await _afterBaseline();
+    } else {
+      _enterComfort();
+    }
   }
 
-  void _onBaselineFrame(CapturedFrame frame, RawGazeSample? sample) {
+  Future<void> _afterBaseline() async {
+    if (!hasProtocol) {
+      await _enterSummary();
+      return;
+    }
+    _baselineDone = true;
+    _step = SessionStep.practice;
+    _phase = StepPhase.idle;
+    notifyListeners();
+  }
+
+  void _onStreamFrame(CapturedFrame frame, RawGazeSample? sample) {
     if (sample != null) {
       _pending.add(sample);
       if (_pending.length >= timing.batchSize) _enqueuePost(_takePending());
@@ -602,23 +765,160 @@ class SessionFlowController extends SafeChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------- practice
+
+  bool _practiceEnded = false;
+
+  /// Starts the practice (or carries it on after a device change).
+  Future<void> startPractice() async {
+    final protocol = _protocolDef;
+    final session = _session;
+    if (_step != SessionStep.practice || _phase != StepPhase.idle) return;
+    if (protocol == null || session == null || _busy) return;
+    _error = null;
+    if (protocol.path == ProtocolPath.gradualFace) {
+      final layout = this.layout;
+      if (layout == null) return;
+      var g = _gradual;
+      final first = g == null;
+      if (g == null) {
+        g = GradualPracticeController(
+          sessionId: session.id,
+          protocol: protocol,
+          layout: layout,
+          repository: _repo,
+          recorder: _recorder,
+          profileMode: _profileData?.responseMode ?? ResponseMode.keyboard,
+          timing: timing,
+          bottomInset: practiceBottomInset,
+          random: _random,
+          onFinished: _practiceFinished,
+        );
+        _gradual = g;
+      } else {
+        g.layout = layout;
+      }
+      _phase = StepPhase.running;
+      notifyListeners();
+      unawaited(first ? g.startStage() : g.resumeAfterInterruption());
+      return;
+    }
+    // Interest conversation: fetch the personalized content first.
+    var i = _interest;
+    if (i != null) {
+      _phase = StepPhase.running;
+      notifyListeners();
+      i.restartCurrent();
+      return;
+    }
+    final assignments = _assignments;
+    final a = assignment;
+    if (assignments == null || a == null) {
+      _error = 'The conversation content is not available here.';
+      notifyListeners();
+      return;
+    }
+    _busy = true;
+    notifyListeners();
+    try {
+      final content = await assignments.content(a.id);
+      i = InterestPracticeController(
+        sessionId: session.id,
+        content: content,
+        reloadContent: () => assignments.content(a.id),
+        repository: _repo,
+        recorder: _recorder,
+        screen: () => _screen,
+        showCaptions: showCaptions,
+        onFinished: _practiceFinished,
+        onPostFinished: _postFinished,
+      );
+      _interest = i;
+      _phase = StepPhase.running;
+      _busy = false;
+      notifyListeners();
+      i.start();
+    } catch (e) {
+      _busy = false;
+      _error = userMessage(e);
+      notifyListeners();
+    }
+  }
+
+  void _practiceFinished(PracticeEnd end) {
+    if (isDisposed || _ended) return;
+    _practiceEnded = true;
+    if (end == PracticeEnd.stopped) {
+      // The protocol stops the practice after low comfort: no more looking
+      // at faces, the session ends here with a polite summary.
+      _endReason = EndReason.endedEarly;
+      unawaited(_enterSummary());
+      return;
+    }
+    _step = SessionStep.post;
+    _phase = StepPhase.idle;
+    notifyListeners();
+  }
+
+  void _postFinished() {
+    if (isDisposed || _ended) return;
+    _enterComfort();
+  }
+
+  // ------------------------------------------------ comfort at the end
+
+  void _enterComfort() {
+    _step = SessionStep.summary;
+    _phase = StepPhase.comfort;
+    _busy = false;
+    _error = null;
+    notifyListeners();
+    unawaited(_frames.stop());
+  }
+
+  /// The participant answered the final comfort question.
+  Future<void> answerFinalComfort(int value) async {
+    if (_phase != StepPhase.comfort) return;
+    _busy = true;
+    _error = null;
+    notifyListeners();
+    await _sendEvent(
+      SessionEventType.comfortAnswer,
+      payload: {'value': value, 'segment': SessionSegmentName.post.wire},
+    );
+    await _enterSummary();
+  }
+
+  /// Goes to the summary without answering the final comfort question.
+  Future<void> skipFinalComfort() async {
+    if (_phase != StepPhase.comfort) return;
+    _busy = true;
+    notifyListeners();
+    await _enterSummary();
+  }
+
   // ------------------------------------------------------ pause / end
 
-  /// Pauses what is running. During the baseline this sends `pause` and stops
-  /// the camera; during calibration or validation it only stops locally
-  /// (the server has no segment running yet).
+  /// True while a segment is open on the server (samples are being sent).
+  bool get _segmentRunning => _openSegment != null;
+
+  /// Pauses what is running. While a segment is open this sends `pause` and
+  /// stops the camera; between segments, and during calibration or
+  /// validation, it only stops locally (the server has no segment running).
   Future<void> pause() async {
     if (!canPause || _switching) return;
     _switching = true;
-    final wasBaseline = _step == SessionStep.baseline;
+    final segmentRunning = _segmentRunning;
     _cancelRun();
     _baselineWatch.stop();
+    _gradual?.pause();
+    _interest?.pause();
     await _stopPump();
     _phase = StepPhase.paused;
     _faceLost = false;
     notifyListeners();
     try {
-      if (wasBaseline) {
+      if (segmentRunning) {
         await _flushSamples();
         await _sendEvent(SessionEventType.pause);
       }
@@ -629,8 +929,8 @@ class SessionFlowController extends SafeChangeNotifier {
     }
   }
 
-  /// Continues after [pause]. The baseline restarts streaming; calibration
-  /// and validation return to their instructions.
+  /// Continues after [pause]. Observations and practice restart streaming;
+  /// calibration and validation return to their instructions.
   Future<void> resume() async {
     if (!canResume) return;
     _switching = true;
@@ -639,18 +939,36 @@ class SessionFlowController extends SafeChangeNotifier {
         notifyListeners();
         return;
       }
-      if (_step != SessionStep.baseline) {
+      if (!_step.hasSessionControls ||
+          _step == SessionStep.calibration ||
+          _step == SessionStep.validation) {
         _phase = StepPhase.idle;
         notifyListeners();
         return;
       }
       final token = ++_token;
-      await _sendEvent(SessionEventType.resume);
-      if (!_alive(token)) return;
-      _baselineWatch.start();
+      final segmentRunning = _segmentRunning;
+      if (segmentRunning) {
+        await _sendEvent(SessionEventType.resume);
+        if (!_alive(token)) return;
+      }
+      if (_isObservationStep) {
+        _baselineWatch.start();
+        _phase = StepPhase.running;
+        notifyListeners();
+        unawaited(_runObservation(token));
+        return;
+      }
+      // Practice or the interest post video.
+      if (segmentRunning) {
+        _lastFaceMs = _frames.nowMs;
+        _startPump(token, handler: _onStreamFrame);
+      }
       _phase = StepPhase.running;
       notifyListeners();
-      unawaited(_runBaseline(token));
+      final g = _gradual;
+      if (_step == SessionStep.practice && g != null) g.resume();
+      _interest?.resume();
     } finally {
       _switching = false;
       notifyListeners();
@@ -659,13 +977,16 @@ class SessionFlowController extends SafeChangeNotifier {
 
   /// Ends the session early and shows the summary.
   Future<void> endEarly() async {
-    if (_session == null || _ended || _step == SessionStep.summary) return;
-    final wasStreaming = _step == SessionStep.baseline &&
-        (_phase == StepPhase.running || _phase == StepPhase.paused);
+    if (_session == null || _ended) return;
+    if (_step == SessionStep.summary && _phase != StepPhase.comfort) return;
+    final wasStreaming = _segmentRunning;
     _cancelRun();
     _baselineWatch.stop();
+    _gradual?.cancel();
+    _interest?.cancel();
     await _stopPump();
     if (wasStreaming) await _flushSamples();
+    _openSegment = null;
     _endReason = EndReason.endedEarly;
     await _enterSummary();
   }
@@ -676,10 +997,11 @@ class SessionFlowController extends SafeChangeNotifier {
     if (!_step.hasSessionControls || _ended || _phase == StepPhase.changed) {
       return;
     }
-    final wasRunning = _step == SessionStep.baseline &&
-        (_phase == StepPhase.running);
+    final wasRunning = _segmentRunning && _phase == StepPhase.running;
     _cancelRun();
     _baselineWatch.stop();
+    _gradual?.interrupted();
+    _interest?.interrupted();
     _phase = StepPhase.changed;
     _change = event;
     _faceLost = false;
@@ -690,6 +1012,7 @@ class SessionFlowController extends SafeChangeNotifier {
   Future<void> _handleChange(FrameSourceEvent event, {required bool flush}) async {
     await _stopPump();
     if (flush) await _flushSamples();
+    _openSegment = null;
     final type = switch (event) {
       FrameSourceEvent.cameraChanged => SessionEventType.cameraChanged,
       FrameSourceEvent.orientationChanged => SessionEventType.orientationChanged,
@@ -697,6 +1020,62 @@ class SessionFlowController extends SafeChangeNotifier {
     };
     await _sendEvent(type);
     if (event == FrameSourceEvent.cameraChanged) await _frames.stop();
+  }
+
+  // ------------------------------------------------- segment recording
+
+  Future<void> _openPracticeSegment(
+    SessionSegmentName segment,
+    StimulusLayout layout,
+    int? stageIndex,
+  ) async {
+    final session = _session;
+    if (session == null) return;
+    if (!_frames.isActive && !await _startCamera()) {
+      throw const ApiException('The camera is not available.');
+    }
+    await _repo.postLayout(session.id, segment, layout, stageIndex: stageIndex);
+    await _repo.postEvent(
+      session.id,
+      SessionEventType.segmentStart,
+      tMs: _frames.nowMs,
+      payload: {
+        'segment': segment.wire,
+        'stage_index': ?stageIndex,
+      },
+    );
+    _openSegment = segment;
+    _faceLost = false;
+    _gazeFailures = 0;
+    _streamProblem = null;
+    _lastFaceMs = _frames.nowMs;
+    if (_phase != StepPhase.running) return;
+    _startPump(_token, handler: _onStreamFrame);
+  }
+
+  Future<void> _updatePracticeLayout(
+    SessionSegmentName segment,
+    StimulusLayout layout,
+    int? stageIndex,
+  ) async {
+    final session = _session;
+    if (session == null || _openSegment == null) return;
+    try {
+      await _repo.postLayout(session.id, segment, layout, stageIndex: stageIndex);
+    } catch (e) {
+      _error = userMessage(e);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _closePracticeSegment(SessionSegmentName segment) async {
+    if (_openSegment == null) return;
+    await _stopPump();
+    await _inFlight;
+    await _flushSamples();
+    await _sendEvent(SessionEventType.segmentEnd,
+        payload: {'segment': segment.wire});
+    _openSegment = null;
   }
 
   // ----------------------------------------------------------- summary
@@ -911,7 +1290,40 @@ class SessionFlowController extends SafeChangeNotifier {
     _token++;
     _frameSub?.cancel();
     _eventSub?.cancel();
+    _gradual?.dispose();
+    _interest?.cancel();
+    _interest?.dispose();
     unawaited(_frames.stop());
     super.dispose();
   }
+}
+
+/// Lets the practice controllers open and close segments through the flow.
+class _FlowRecorder implements SegmentRecorder {
+  _FlowRecorder(this._flow);
+
+  final SessionFlowController _flow;
+
+  @override
+  int get nowMs => _flow._frames.nowMs;
+
+  @override
+  Future<void> openSegment(
+    SessionSegmentName segment,
+    StimulusLayout layout, {
+    int? stageIndex,
+  }) =>
+      _flow._openPracticeSegment(segment, layout, stageIndex);
+
+  @override
+  Future<void> updateLayout(
+    SessionSegmentName segment,
+    StimulusLayout layout, {
+    int? stageIndex,
+  }) =>
+      _flow._updatePracticeLayout(segment, layout, stageIndex);
+
+  @override
+  Future<void> closeSegment(SessionSegmentName segment) =>
+      _flow._closePracticeSegment(segment);
 }

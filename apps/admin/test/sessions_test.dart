@@ -229,4 +229,155 @@ void main() {
       });
     }
   });
+
+  practiceDetailTests();
+}
+
+/// Practice sessions (build step 3): outcomes, stages, trials, answers.
+void practiceDetailTests() {
+  Future<void> openDetail(WidgetTester tester, TestBed bed) async {
+    await openSessions(tester, bed);
+    await tester.tap(find.text('P-001'));
+    await tester.pumpAndSettle();
+  }
+
+  Finder inCard(String key, String text) => find.descendant(
+        of: find.byKey(Key(key)),
+        matching: find.text(text),
+      );
+
+  group('Session detail of a practice session', () {
+    testWidgets('gradual: number task, comfort and "Cannot be judged yet"',
+        (tester) async {
+      useWindow(tester, 1440, 1800);
+      final bed = TestBed(
+        sessions: FakeSessionsRepository(detailJson: gradualSessionDetailJson),
+      );
+      await openDetail(tester, bed);
+
+      // The dashes are gone: the cards come from the outcomes.
+      expect(inCard('card-number-task', '10 of 12'), findsOneWidget);
+      expect(find.descendant(
+        of: find.byKey(const Key('card-number-task')),
+        matching: find.textContaining('83 % matched'),
+      ), findsOneWidget);
+      expect(find.descendant(
+        of: find.byKey(const Key('card-number-task')),
+        matching: find.textContaining('2 stages completed'),
+      ), findsOneWidget);
+      expect(inCard('card-comfort', '3.7'), findsOneWidget);
+      expect(find.descendant(
+        of: find.byKey(const Key('card-comfort')),
+        matching: find.textContaining('lowest 3'),
+      ), findsOneWidget);
+      expect(find.descendant(
+        of: find.byKey(const Key('card-comfort')),
+        matching: find.textContaining('1 pause'),
+      ), findsOneWidget);
+      expect(find.byKey(const Key('card-comprehension')), findsNothing,
+          reason: 'the gradual path has no comprehension questions');
+      // Eye-region attention stays "Not evaluable" for a synthetic estimator.
+      expect(inCard('card-eye', 'Not evaluable'), findsOneWidget);
+
+      // The improvement line.
+      expect(find.byKey(const Key('section-improvement')), findsOneWidget);
+      expect(find.text('Cannot be judged yet'), findsOneWidget);
+      expect(find.byKey(const Key('improvement-reason')), findsOneWidget);
+      expect(find.text('The development estimator makes no measurement claims.'),
+          findsOneWidget);
+
+      // Protocol facts.
+      expect(find.text('Faces v1 · version 2'), findsOneWidget);
+      expect(find.text('Gradual face practice'), findsOneWidget);
+    });
+
+    testWidgets('gradual: stages, trials (first 100), comfort answers',
+        (tester) async {
+      useWindow(tester, 1440, 1800);
+      final bed = TestBed(
+        sessions: FakeSessionsRepository(detailJson: gradualSessionDetailJson),
+      );
+      await openDetail(tester, bed);
+
+      await scrollTo(tester, find.byKey(const Key('stages-table')));
+      final stages = find.byKey(const Key('stages-table'));
+      for (final header in ['Stage', 'Decision', 'Reason', 'Correct', 'Unusable', 'Comfort', 'Trials']) {
+        expect(find.descendant(of: stages, matching: find.text(header)), findsOneWidget);
+      }
+      expect(find.descendant(of: stages, matching: find.text('advance')), findsOneWidget);
+      expect(find.descendant(of: stages, matching: find.text('complete')), findsOneWidget);
+      expect(find.descendant(of: stages, matching: find.text('criteria_met')), findsOneWidget);
+      expect(find.descendant(of: stages, matching: find.text('83 %')), findsNWidgets(2));
+
+      await scrollTo(tester, find.byKey(const Key('trials-table')));
+      expect(find.text('Showing the first 100 of 120 trials.'), findsOneWidget);
+      final table = tester.widget<DataTable>(find.descendant(
+        of: find.byKey(const Key('trials-table')),
+        matching: find.byType(DataTable),
+      ));
+      expect(table.rows, hasLength(100));
+      expect(find.text('no answer'), findsWidgets, reason: 'a timed-out trial');
+
+      await scrollTo(tester, find.byKey(const Key('section-comfort-answers')));
+      expect(find.textContaining('4 · Comfortable · after stage 1'), findsOneWidget);
+      expect(find.textContaining('3 · Neutral · after stage 2'), findsOneWidget);
+      expect(find.textContaining('5 · Very comfortable · post'), findsOneWidget);
+    });
+
+    testWidgets('interest: comprehension card, improvement met, answers table',
+        (tester) async {
+      useWindow(tester, 1440, 1800);
+      final bed = TestBed(
+        sessions: FakeSessionsRepository(detailJson: interestSessionDetailJson),
+      );
+      await openDetail(tester, bed);
+
+      expect(inCard('card-comprehension', '3 of 4'), findsOneWidget);
+      expect(find.descendant(
+        of: find.byKey(const Key('card-comprehension')),
+        matching: find.textContaining('75 %'),
+      ), findsOneWidget);
+      expect(find.byKey(const Key('card-number-task')), findsNothing);
+      expect(inCard('card-comfort', '4.5'), findsOneWidget);
+      expect(inCard('card-eye', '40 %'), findsOneWidget);
+      expect(find.text('All three criteria met'), findsOneWidget);
+      expect(find.byKey(const Key('improvement-reason')), findsNothing);
+
+      await scrollTo(tester, find.byKey(const Key('answers-table')));
+      final answers = find.byKey(const Key('answers-table'));
+      expect(find.descendant(of: answers, matching: find.text('interaction')), findsOneWidget);
+      expect(find.descendant(of: answers, matching: find.text('comprehension')), findsNWidgets(2));
+      expect(find.descendant(of: answers, matching: find.text('Trains')), findsOneWidget);
+      expect(find.descendant(of: answers, matching: find.text('Yes')), findsOneWidget);
+      expect(find.descendant(of: answers, matching: find.text('No')), findsOneWidget);
+      expect(find.descendant(of: answers, matching: find.text('s2')), findsWidgets);
+      await scrollTo(tester, find.byKey(const Key('section-stages')));
+      expect(find.textContaining('No stage was decided'), findsOneWidget);
+    });
+
+    testWidgets('a measurement-only session keeps its two cards with a note',
+        (tester) async {
+      useWindow(tester, 1440, 1800);
+      await openDetail(tester, TestBed());
+      expect(inCard('card-comprehension', '—'), findsOneWidget);
+      expect(find.text('No practice was run in this session.'), findsNWidgets(2));
+      expect(find.byKey(const Key('section-improvement')), findsNothing);
+      expect(find.byKey(const Key('section-protocol')), findsNothing);
+      expect(find.byKey(const Key('stages-table')), findsNothing);
+    });
+
+    for (final width in [360.0, 800.0, 1440.0]) {
+      testWidgets('the practice detail fits ${width.toInt()} px', (tester) async {
+        useWindow(tester, width, width == 360 ? 740 : 900);
+        final bed = TestBed(
+          sessions: FakeSessionsRepository(detailJson: gradualSessionDetailJson),
+        );
+        await openDetail(tester, bed);
+        for (final key in ['stages-table', 'trials-table', 'section-comfort-answers', 'section-events']) {
+          await scrollTo(tester, find.byKey(Key(key)));
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
 }
