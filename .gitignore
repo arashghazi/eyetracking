@@ -1,0 +1,6 @@
+# build and tooling output
+build/
+.dart_tool/
+__pycache__/
+*.log
+.env

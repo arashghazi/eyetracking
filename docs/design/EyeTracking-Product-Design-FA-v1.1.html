@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>طراحی دو برنامهٔ تمرین نگاه و مدیریت پژوهش · نسخهٔ ۱٫۱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root{
+    --ink:#1b2a2f; --muted:#5b6b70; --teal:#0f6f6f; --teal-dark:#0b5555;
+    --line:#cfdcdc; --wash:#eef5f5; --wash2:#f6f9f9; --warn:#fff6e3; --warn-line:#e8cf95;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#fff;color:var(--ink);
+    font-family:"Vazirmatn",Tahoma,"DejaVu Sans",sans-serif;font-size:9.5pt;line-height:1.58}
+  .page{width:210mm;height:297mm;padding:11mm 14mm 13mm;position:relative;page-break-after:always;overflow:hidden}
+  .page:last-child{page-break-after:auto}
+  .hdr{display:flex;justify-content:space-between;font-size:8.2pt;color:var(--muted);border-bottom:1.5px solid var(--teal);padding-bottom:3px;margin-bottom:5mm}
+  .ftr{position:absolute;bottom:7mm;right:14mm;left:14mm;display:flex;justify-content:space-between;font-size:8pt;color:var(--muted);border-top:1px solid var(--line);padding-top:4px}
+  .kicker{color:var(--teal);font-weight:700;font-size:9.5pt;margin:0 0 2mm}
+  h1{font-size:20pt;line-height:1.35;margin:0 0 2.5mm;font-weight:700}
+  h1.small{font-size:15.5pt}
+  h2{font-size:10.8pt;color:var(--teal);margin:3.6mm 0 1.2mm;font-weight:700}
+  p{margin:0 0 1.7mm;text-align:justify}
+  .lead{font-size:10pt;color:#2e3f44}
+  .callout{background:var(--wash);border-right:3px solid var(--teal);padding:2mm 3.2mm;margin:2mm 0 2.4mm}
+  .callout.warn{background:var(--warn);border-right-color:#c9962b}
+  .callout p:last-child{margin-bottom:0}
+  table{width:100%;border-collapse:collapse;margin:1.2mm 0 2.4mm;font-size:8.8pt}
+  th,td{border:1px solid var(--line);padding:1.4mm 2.4mm;vertical-align:top;text-align:right}
+  th{background:var(--wash);font-weight:700;color:var(--teal-dark)}
+  td.k{width:30mm;font-weight:700;white-space:nowrap}
+  td.en,th.en{font-family:"Inter","Segoe UI","DejaVu Sans",sans-serif;direction:ltr;text-align:left}
+  ol,ul{margin:0 0 2mm;padding-right:5.5mm}
+  li{margin-bottom:.7mm;text-align:justify}
+  .tag{display:inline-block;background:var(--teal);color:#fff;font-size:7pt;border-radius:2px;padding:0 1.4mm;margin-inline-start:1.2mm;vertical-align:middle;line-height:1.7}
+  .mock{direction:ltr;text-align:left;font-family:"Inter","Segoe UI","DejaVu Sans",sans-serif;border:1px solid var(--line);background:var(--wash2);padding:2.6mm 3.6mm;margin:1.2mm 0 2.4mm;font-size:8.2pt;color:#1d2b2f}
+  .mock .bar{display:flex;justify-content:space-between;font-weight:700;color:var(--teal-dark);border-bottom:1px solid var(--line);padding-bottom:1.5mm;margin-bottom:2.5mm}
+  .mock .bar span:last-child{font-weight:400;color:var(--muted)}
+  .mock h3{margin:0 0 .5mm;font-size:12pt}
+  .mock .sub{color:var(--muted);margin-bottom:2.5mm}
+  .cards{display:flex;gap:3mm;margin:2mm 0}
+  .card{flex:1;background:#fff;border:1px solid var(--line);padding:2.4mm 3mm}
+  .card b{display:block;margin-bottom:.6mm}
+  .card .v{font-size:10pt;font-weight:700;color:var(--teal-dark)}
+  .card .n{color:var(--muted);font-size:7.8pt}
+  .btn{display:inline-block;border:1px solid var(--teal);color:var(--teal-dark);padding:.6mm 2.6mm;margin:1mm 1.5mm 0 0;font-size:8pt;background:#fff}
+  .flow{display:flex;flex-wrap:wrap;gap:1.5mm;margin:1.5mm 0 2.5mm}
+  .flow span{background:var(--wash);border:1px solid var(--line);padding:.8mm 2.6mm;font-size:8.8pt}
+  .flow span+span::before{content:"◂";color:var(--teal);margin-inline-end:2mm;display:none}
+  .arch{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2.5mm;margin:1.5mm 0 3mm;text-align:center;font-size:9pt}
+  .arch div{border:1px solid var(--line);background:var(--wash2);padding:2mm}
+  .arch .core{background:var(--wash);border-color:var(--teal);font-weight:700}
+  .muted{color:var(--muted);font-size:8.6pt}
+  .caption{font-size:8.6pt;color:var(--muted);margin:0 0 1mm}
+  .quote{direction:ltr;text-align:left;font-family:"Inter","Segoe UI","DejaVu Sans",sans-serif;font-style:italic;color:#2e3f44;font-size:9.6pt;margin:0 0 1.5mm}
+  .en{direction:ltr;text-align:left;font-family:"Inter","Segoe UI","DejaVu Sans",sans-serif}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+  .letter{border:1px solid var(--line);padding:2.6mm 3.6mm;background:#fff;direction:ltr;text-align:left;font-family:"Inter","Segoe UI","DejaVu Sans",sans-serif;font-size:8.6pt;line-height:1.5}
+  .letter p{text-align:left}
+  .num{font-variant-numeric:tabular-nums}
+  .changes td:nth-child(1){width:7mm;text-align:center;font-weight:700}
+  .changes td:nth-child(2){width:38mm;direction:ltr;text-align:left;font-family:"Inter","Segoe UI","DejaVu Sans",sans-serif;font-size:8.2pt;color:#2e3f44}
+  .changes td:nth-child(3){width:58mm}
+</style>
+</head>
+<body>
+
+<!-- ================= صفحهٔ 1 ================= -->
+<section class="page">
+  <div class="hdr"><span>طرح محصول برای بررسی شما</span><span>نسخهٔ ۱٫۱ · ۲۹ سپتامبر ۲۰۲۶ · بازنگری بر پایهٔ ۹ نظر خانم دکتر</span></div>
+  <p class="kicker">دو برنامهٔ انگلیسی · یک بستر پژوهشی مشترک</p>
+  <h1>آزمون و تمرین نگاه<br>با پروفایل و مدیریت داده</h1>
+  <p class="lead">این سند توضیح می‌دهد چه می‌سازیم، هر کاربر چه می‌بیند و داده‌ها چگونه قابل بررسی می‌شوند. نسخهٔ ۱٫۱ نظرهای خانم دکتر روی پیشنهاد ۲٫۰ را یک‌به‌یک اعمال کرده است؛ فهرست تغییرها در پیوست صفحهٔ ۸ آمده است.</p>
+  <div class="callout"><p><b>دامنهٔ این تحویل:</b> طراحی برای مطالعه و تصمیم شما. این مرحله شامل ساخت نسخهٔ نهایی برنامه، اتصال به سرویس پولی یا آغاز پژوهش با شرکت‌کننده نیست.</p></div>
+
+  <h2>دو محصول مشخص</h2>
+  <table>
+    <tr><th style="width:34mm">برنامه</th><th>کار اصلی</th></tr>
+    <tr><td class="k"><span class="en">Participant App</span><br>اپ شرکت‌کننده</td><td>پروفایل شخصی، برگهٔ اطلاعات و رضایت آگاهانه، آماده‌سازی دوربین، آزمون، دو مسیر تمرین، مشاهدهٔ سوابق و دریافت دادهٔ خام خود.</td></tr>
+    <tr><td class="k"><span class="en">Research Admin</span><br>پنل پژوهشگر</td><td>مدیریت شرکت‌کنندگان و برنامهٔ جلسات، تنظیم تمرین، بررسی کیفیت اندازه‌گیری، تحلیل روند روی دادهٔ کدگذاری‌شده و خروجی داده.</td></tr>
+  </table>
+
+  <h2>زبان و مخاطب</h2>
+  <p>رابط هر دو برنامه، دستورها، پرسش‌ها و محتوای ویدئویی <b>انگلیسی و چپ‌به‌راست</b> خواهد بود. مطابق نظر خانم دکتر، مخاطب این نسخه <b>بزرگسالان جوان</b> است و <b>هیچ کودکی</b> در مطالعه شرکت نمی‌کند؛ رضایت فقط از بزرگسال گرفته می‌شود. محدودهٔ دقیق سن و شرایط ورود را تیم پژوهش مشخص می‌کند؛ پرسش‌های ساده‌شده برای این تصمیم در صفحهٔ ۷ آمده است. <span class="tag">۱٫۱</span></p>
+
+  <h2>نام مسیرها؛ بدون ابهام شماره‌گذاری</h2>
+  <table>
+    <tr><th style="width:34mm">نام داخل برنامه</th><th>رابطه با سند قبلی و نیاز به هوش مصنوعی</th></tr>
+    <tr><td class="k"><span class="en">Interest<br>Conversation</span></td><td>روش اول قبلی: چهرهٔ سخنگو با موضوع موردعلاقه. <b>نقطهٔ شروع</b> پژوهش به تشخیص خانم دکتر. طبق توضیح شما، API تولید ویدئو مربوط به همین مسیر است.</td></tr>
+    <tr><td class="k"><span class="en">Gradual Face<br>Practice</span></td><td>روش دوم قبلی: تبدیل تدریجی شکل به چهره و نزدیک‌شدن عدد. <b>مقصد اصلی</b> پژوهش به تشخیص خانم دکتر. با تصویر و تغییرات برنامه‌ریزی‌شده اجرا می‌شود؛ API تولید ویدئو لازم ندارد.</td></tr>
+  </table>
+  <p>خانم دکتر نوشته است که روش اول شروع خوبی است و «قطعاً می‌خواهیم به سمت روش دوم برویم». بنابراین هر دو مسیر در همین تحویل ساخته می‌شوند و هیچ‌کدام «شاید بعداً» نیست: ابتدا <span class="en">Interest Conversation</span> با محتوای نمونهٔ مصوب، سپس <span class="en">Gradual Face Practice</span>. پژوهشگر ترتیب استفاده برای هر فرد را در پروتکل تعیین می‌کند. <span class="tag">۱٫۱</span></p>
+
+  <div class="callout">
+    <p class="quote">“More time spent in the eyes, without discomfort, while being able to maintain attention to the content of the conversation.” — Dr. Hadjikhani, 28 Sep</p>
+    <p><b>هدف مشترک:</b> زمان بیشترِ نگاه به چشم‌های گوینده، بدون افزایش ناراحتی، با حفظ توجه به محتوای گفت‌وگو. این سه با هم سنجیده می‌شوند و «بهبود» فقط وقتی گزارش می‌شود که هر سه شرط برقرار باشد. تعریف عملیاتی «تماس چشمی» و شرط گزارش‌دهی آن در صفحهٔ ۵ آمده است. <span class="tag">۱٫۱</span></p>
+  </div>
+  <div class="callout warn"><p><b>مهم‌ترین تغییر نسخهٔ ۱٫۱:</b> هدف تماس چشمی بدون تغییر می‌ماند. محدودیت دقت وب‌کم، تغییر هدف نیست؛ شرطی است برای اینکه چه زمانی نتیجهٔ سطح چشم گزارش شود. صفحهٔ ۵ و پیوست صفحهٔ ۸ را ببینید.</p></div>
+  <div class="ftr"><span>طراحی پیشنهادی؛ برای بررسی مالک محصول</span><span class="num">۱ / ۸</span></div>
+</section>
+
+<!-- ================= صفحهٔ 2 ================= -->
+<section class="page">
+  <div class="hdr"><span>اپ شرکت‌کننده</span><span>پروفایل، صفحه‌ها و جریان جلسه</span></div>
+  <h1 class="small">هر فرد، حساب و سابقهٔ خودش را دارد</h1>
+  <p>پایلوت با دعوت پژوهشگر شروع می‌شود. فرد حساب می‌سازد، برگهٔ اطلاعات پژوهش را می‌خواند و انتخاب‌های رضایت خود را ثبت می‌کند. یک کد پژوهشی به او اختصاص می‌یابد؛ ایمیل ورود از داده‌های مورد استفاده در تحلیل جدا نگهداری می‌شود.</p>
+  <div class="callout"><p><b>برگهٔ اطلاعات، طبق نظر خانم دکتر، سه بخش الزامی دارد:</b> اهداف مطالعه؛ منابع احتمالی ناراحتی (نگاه به چهره و چشم‌ها، نزدیک‌شدن عدد به ناحیهٔ چشم، مدت جلسه و کار با دوربین)؛ و فواید احتمالی. علاوه بر آن: نحوهٔ نگهداری داده، حق توقف و شروع دوباره در هر زمان، و انتخاب جداگانه برای ضبط صوت یا تصویر. رضایت روی همین برگه و پیش از اولین جلسه ثبت می‌شود. <span class="tag">۱٫۱</span></p></div>
+
+  <h2>پروفایل چه چیزهایی دارد؟</h2>
+  <p>نام نمایشی اختیاری، علایق تأییدشده، شیوهٔ پاسخ مناسب (صفحه‌کلید، لمس، انتخاب از چهار گزینه یا نماد)، ترجیح چهره و صدا و سرعت، نیازهای دسترس‌پذیری، تکالیف اختصاص‌یافته و سوابق جلسات.</p>
+  <p><b>فرم جمعیت‌شناختی قابل تنظیم</b> (سن، جنسیت، وضعیت تشخیص یا خوداظهاری و امتیازهایی که پروتکل تعیین می‌کند) به <b>کد پژوهشی</b> متصل است نه به هویت، تا طبق درخواست خانم دکتر همبستگی نتایج با ویژگی‌های جمعیت‌شناختی روی دادهٔ کدگذاری‌شده ممکن باشد. بزرگسال‌بودن به معنی مناسب‌بودن تکلیف عددی برای همه نیست؛ شیوهٔ پاسخ در پروفایل و پروتکل تنظیم می‌شود. <span class="tag">۱٫۱</span></p>
+
+  <p class="caption">نمونهٔ چیدمان صفحهٔ خانه — فقط طرح ظاهری، بدون دادهٔ واقعی</p>
+  <div class="mock">
+    <div class="bar"><span>My practice</span><span>My progress · My profile · Download my data</span></div>
+    <h3>Your next session</h3>
+    <div class="sub">Assigned by your researcher · You can pause or end a session at any time, and come back whenever you like.</div>
+    <div class="cards">
+      <div class="card"><b>Interest Conversation</b><div class="n">A conversation with a speaking face about a topic you choose. It asks you questions along the way.</div><span class="btn">Confirm my topic</span></div>
+      <div class="card"><b>Gradual Face Practice</b><div class="n">A guided activity with shapes, faces and number choices.</div><span class="btn">Prepare for session</span></div>
+    </div>
+  </div>
+  <p>سوابق در <span class="en">My progress</span> و دریافت دادهٔ خام خود فرد در <span class="en">Download my data</span> قرار می‌گیرد: نمونه‌های نگاه، رخدادهای جلسه، پاسخ‌ها و، فقط اگر ضبط را انتخاب کرده باشد، فایل صوت یا تصویر خودش. مسیر کامل صفحه‌ها در سند معماری آمده است. <span class="tag">۱٫۱</span></p>
+
+  <h2>ترتیب یک جلسه</h2>
+  <div class="flow"><span>آماده‌شدن محتوا</span><span>بررسی دوربین</span><span>کالیبراسیون + آزمون مستقل</span><span>مشاهدهٔ پایه</span><span>تمرین</span><span>مشاهدهٔ پایانی</span><span>راحتی و خلاصه</span></div>
+  <p>آزمون پایه و پایانی از بخش تمرین جدا هستند و با محتوای ثابت یا هم‌ارزِ مصوب اجرا می‌شوند. مدت، ترتیب و سختی را پژوهشگر در نسخهٔ مشخصی از پروتکل تعیین می‌کند. در مسیر تدریجی، پرسش کوتاه راحتی در مرز هر مرحله هم پرسیده می‌شود، نه فقط در پایان جلسه.</p>
+
+  <h2>توقف و شروع دوباره، بخشی از طراحی‌اند</h2>
+  <p>دکمه‌های <span class="en">Pause</span> و <span class="en">End session</span> همیشه در دسترس‌اند. طبق نظر خانم دکتر، فرد هر وقت احساس کند زیاد است متوقف می‌کند و هر وقت خواست دوباره شروع می‌کند؛ برای شروع دوباره اجازهٔ پژوهشگر لازم نیست. توقف هرگز خطا یا شکست ثبت نمی‌شود، بلکه دادهٔ راحتی است و تلاش بعدی به همان تکلیف وصل می‌ماند. شروع دوباره با بررسی دوربین و اعتبار کالیبراسیون همراه است. تغییر زوم، جهت گوشی یا جای دوربین کالیبراسیون را باطل می‌کند. قطع شبکه، نبود تصویر معتبر یا آماده‌نبودن ویدئو پیام روشن و راه برگشت دارند. <span class="tag">۱٫۱</span></p>
+  <p>ظاهر بزرگسالانه و آرام، نوشته‌های خوانا، پاسخ با لمس یا صفحه‌کلید، بدون امتیاز تنبیهی و بدون نمایش مداوم نقطهٔ نگاه روی صورت در زمان سنجش.</p>
+  <div class="ftr"><span>زبان محصول: English · جهت: LTR</span><span class="num">۲ / ۸</span></div>
+</section>
+
+<!-- ================= صفحهٔ 3 ================= -->
+<section class="page">
+  <div class="hdr"><span>دو مسیر تمرین</span><span>رفتار دقیق و معیار پیشروی</span></div>
+  <h1 class="small">چه اتفاقی در هر مسیر می‌افتد؟</h1>
+
+  <h2>مسیر چهرهٔ سخنگو با موضوع موردعلاقه (نقطهٔ شروع)</h2>
+  <p>خانم دکتر خواسته این مسیر «تا حد ممکن واقع‌گرایانه و تعاملی» باشد. نسخهٔ ۱٫۱ بیشترین تعامل ممکن را در محتوای ازپیش‌ساخته می‌گنجاند و تعامل زنده را به‌عنوان فاز مشخص بعدی برنامه‌ریزی می‌کند. <span class="tag">۱٫۱</span></p>
+  <ol>
+    <li>انتخاب موضوع با مصاحبهٔ کوتاه انگلیسی با گزینه‌ها و متن اختیاری؛ پیشنهاد موضوع با هوش مصنوعی ممکن است، اما انتخاب نهایی با خود فرد است.</li>
+    <li>متن کوتاه <b>شخصی‌سازی‌شده</b>: نام نمایشی فرد و موضوع او، دو تا سه نقطه که چهره از فرد سؤال می‌پرسد، و برای هر پاسخ یک واکنش کوتاه تأییدشده، تا گفت‌وگو دوطرفه حس شود. پرسش‌های فهم محتوا جدا از این تعامل‌ها تعریف می‌شوند. متن و چهره/صدا پیش از نمایش بازبینی می‌شوند.</li>
+    <li>فرد چهره و صدا را از میان مجموعهٔ مصوب انتخاب می‌کند. API متن تأییدشده را به ویدئوی چهرهٔ سخنگو تبدیل می‌کند. ویدئو و واکنش‌های شاخه‌ای باید آماده و قابل پخش باشند، سپس جلسهٔ زمان‌دار شروع می‌شود.</li>
+    <li>در مرز بخش‌ها، سؤال یا علامت نمایش داده می‌شود. پاسخ فرد بخش بعدی را از میان شاخه‌های تأییدشده انتخاب می‌کند؛ فهم محتوا جدا از نگاه ثبت می‌شود.</li>
+  </ol>
+  <div class="callout">
+    <p><b>واقع‌گرایی و تعامل، در دو سطح:</b></p>
+    <p><b>سطح ۱، همین تحویل:</b> ویدئوی ازپیش‌ساخته با شخصی‌سازی، پرسش‌های چهره و شاخه‌های تأییدشده. بدون تأخیر پخش و بدون خطر نمایش محتوای بازبینی‌نشده.</p>
+    <p><b>سطح ۲، گام ۷ در برنامه:</b> آواتار زندهٔ جریانی با تشخیص گفتار و پاسخ‌گویی محدود به موضوع مصوب. سرویس جریانی، طراحی تأخیر، میکروفون و قواعد وقفه لازم دارد و پس از پایلوت جداگانه برآورد می‌شود.</p>
+    <p>برای اندازه‌گیری فرقی نمی‌کند: هر دو سطح روی همان ثبت نگاه و ناحیهٔ چشمِ متحرک اجرا می‌شوند. <b>واقع‌گرایی چهره</b> یک تصمیم جداست: بازیگر فیلم‌شده با شاخه‌های محدود، یا آواتار واقع‌گرای هوش مصنوعی با شخصی‌سازی کامل. انتخاب با خانم دکتر (صفحهٔ ۷).</p>
+  </div>
+  <p>تولید متن و تولید ویدئو دو قابلیت‌اند؛ ممکن است یک ارائه‌دهنده هر دو را فراهم کند. اتصال آن‌ها قابل تعویض طراحی می‌شود. تا زمان انتخاب API، متن و ویدئوی نمونهٔ مصوب برای ساخت و آزمون برنامه استفاده می‌شود.</p>
+
+  <h2>مسیر تبدیل تدریجی شکل به چهره (مقصد اصلی پژوهش)</h2>
+  <ol>
+    <li>مربع ساده به فرم شبیه چهره، چهرهٔ کم‌جزئیات و سپس چهرهٔ واقعیِ تأییدشده تبدیل می‌شود. تصویرها و مراحل از قبل آماده‌اند.</li>
+    <li>برای فردی که تکلیف عددی مناسب اوست، یک عدد تصادفی ابتدا بیرون محدودهٔ صورت ظاهر می‌شود. پاسخ با صفحه‌کلید یا انتخاب از میان چهار عدد است.</li>
+    <li>با عملکرد مناسب و حفظ راحتی، عدد در مراحل بعدی به صورت و سپس به ناحیهٔ نزدیک چشم‌ها می‌رسد. جای نهایی عدد تصمیم خانم دکتر است. پیش‌فرض نسخهٔ اول: نزدیک چشم‌ها بدون پوشاندن آن‌ها؛ ورود عدد به داخل ناحیهٔ چشم فقط با تنظیم صریح در پروتکل. <span class="tag">۱٫۱</span></li>
+    <li>جزئیات چهره نیز افزایش می‌یابد. برای قابل‌تفسیرماندن داده، در هر بخش یک عامل تغییر می‌کند: فاصلهٔ عدد یا میزان شباهت شکل به صورت. تغییر هم‌زمان به‌صورت تنظیم پژوهشی جدا قابل تعریف است.</li>
+    <li>پاسخ اشتباه، ناراحتی یا دادهٔ نامعتبر باعث پیشروی خودکار نمی‌شود. در مرز هر مرحله پرسش کوتاه راحتی پرسیده می‌شود؛ مرحله می‌تواند ثابت بماند، آسان‌تر شود یا با انتخاب فرد متوقف شود. نماد و تصویر جایگزین عدد هستند. <span class="tag">۱٫۱</span></li>
+  </ol>
+  <p class="muted">در هر مرحله، جای عدد، پاسخ، میزان جزئیات چهره، پاسخ راحتی و دادهٔ نگاه ثبت می‌شود. نگاه به عدد از بخش‌های بدون راهنما جداست؛ خواندن درست عدد خودش شاهد رفتاری نگاه به آن نقطه است و به دقت دوربین وابسته نیست. اولین روی‌گرداندن به‌تنهایی «آستانهٔ اجتناب بالینی» محسوب نمی‌شود.</p>
+  <div class="ftr"><span>هر دو مسیر: اندازه‌گیری مشترک، محرک و منطق تمرین متفاوت</span><span class="num">۳ / ۸</span></div>
+</section>
+
+<!-- ================= صفحهٔ 4 ================= -->
+<section class="page">
+  <div class="hdr"><span>پنل پژوهشگر</span><span>مدیریت، بررسی و خروجی داده</span></div>
+  <h1 class="small">ادمین باید داده را قابل بررسی کند</h1>
+  <p>پنل فقط فهرست کاربران نیست. پژوهشگر می‌تواند پروتکل بسازد، آن را به افراد اختصاص دهد، کیفیت هر جلسه را ببیند و تحلیل قابل بازتولید بگیرد. نسخهٔ پروتکلی که در یک جلسه اجرا شده بعداً بی‌صدا تغییر نمی‌کند.</p>
+  <table>
+    <tr><th style="width:30mm">بخش انگلیسی</th><th>امکانات</th></tr>
+    <tr><td class="k en">Participants</td><td>دعوت، کد پژوهشی، پروفایل، رضایت، <b>فرم جمعیت‌شناختی</b>، تخصیص مسیر و مشاهدهٔ روند هر فرد. <span class="tag">۱٫۱</span></td></tr>
+    <tr><td class="k en">Protocols</td><td>مدت، مراحل، فاصلهٔ عدد و حد نهایی آن، دشواری، پرسش‌ها، نقاط تعامل، قواعد پیشروی و راحتی، توقف و معیار کیفیت؛ پیش‌نویس و نسخهٔ منتشرشده.</td></tr>
+    <tr><td class="k en">Sessions</td><td>خطای کالیبراسیون، نتیجهٔ اعتبارسنجی ناحیه‌ای، پوشش دادهٔ معتبر، پاسخ‌ها، وقفه‌ها، راحتی و بازپخش محرک همراه با تخمین نگاه.</td></tr>
+    <tr><td class="k en">Analysis</td><td>فیلتر گروه/فرد، مسیر، تاریخ، دستگاه، نسخه و کیفیت؛ مقایسهٔ قبل/بعد و روند جلسات قابل مقایسه؛ <b>همبستگی با جمعیت‌شناسی روی دادهٔ کدگذاری‌شده</b>. <span class="tag">۱٫۱</span></td></tr>
+    <tr><td class="k en">Content &amp; Exports</td><td>بازبینی متن، ویدئو و واکنش‌های شاخه‌ای، وضعیت ساخت، خروجی CSV/JSON، فرهنگ داده و ثبت دسترسی.</td></tr>
+  </table>
+
+  <p class="caption">نمونهٔ چیدمان صفحهٔ جلسه — مقادیر عمداً جای‌نگهدار هستند</p>
+  <div class="mock">
+    <div class="bar"><span>Research Admin</span><span>Participants · Sessions · Analysis · Exports</span></div>
+    <h3>Session review · Participant P-014</h3>
+    <div class="sub">Overview &nbsp; Calibration &nbsp; Timeline &nbsp; Responses</div>
+    <div class="cards">
+      <div class="card"><b>Face-region attention</b><div class="v">—</div><div class="n">Share of classifiable time · uncertain share shown separately</div></div>
+      <div class="card"><b>Eye-region attention</b><div class="v">Not evaluable</div><div class="n">Regional validation not passed on this device</div></div>
+      <div class="card"><b>Comprehension</b><div class="v">—</div><div class="n">No responses in this example</div></div>
+      <div class="card"><b>Comfort</b><div class="v">—</div><div class="n">Participant-reported, per stage</div></div>
+    </div>
+    <span class="btn">Review quality</span><span class="btn">Configure export</span>
+  </div>
+
+  <h2>سه نتیجه کنار هم، نه یک امتیاز مبهم</h2>
+  <p><b>نگاه:</b> زمان و سهم توجه قابل‌طبقه‌بندی به ناحیهٔ چشم، در دو سطح صورت و چشم، همراه با زمان نامطمئن و کیفیت. <b>فهم:</b> پاسخ به پرسش‌های محتوا؛ دقت انتخاب عدد جداگانه. <b>راحتی:</b> گزارش فرد در هر مرحله، مکث‌ها، توقف‌ها و پایان زودهنگام.</p>
+  <p><b>تعریف «بهبود» در پنل:</b> فقط وقتی یک جلسه یا روند به‌عنوان بهبود علامت می‌خورد که سهم نگاه به ناحیهٔ چشم بیشتر شده باشد، راحتی بدتر نشده باشد و فهم محتوا حفظ شده باشد. این همان تعریف خانم دکتر از نتیجهٔ اولیه است؛ پنل هیچ‌یک از سه را به‌تنهایی «بهبود» نمی‌نامد. <span class="tag">۱٫۱</span></p>
+  <p>دادهٔ گمشده برابر با «نگاه نکردن» نیست. سهم نگاه به چشم از زمان مشاهده‌ای محاسبه می‌شود که قابل طبقه‌بندی است؛ کل زمان و سهم نامطمئن نیز نمایش داده می‌شوند. جلسات با دستگاه، اندازهٔ صورت یا پروتکل ناسازگار به‌طور پیش‌فرض در یک روند واحد جمع نمی‌شوند.</p>
+
+  <h2>دسترسی‌ها</h2>
+  <p>شرکت‌کننده: دادهٔ خودش، شامل دادهٔ خام. پژوهشگر: دادهٔ کدگذاری‌شدهٔ مطالعهٔ خودش. تحلیلگر: خروجی مجاز با کد و جمعیت‌شناسی، بدون هویت. مدیر: اعضا و تنظیمات. دسترسی به ارتباط «هویت واقعی ↔ کد پژوهشی» مجوز جدا دارد؛ کنترل دسترسی روی سرور هم اعمال می‌شود.</p>
+  <div class="ftr"><span>بازپخش جلسه: محرک + تخمین نگاه؛ نه ویدئوی صورت شرکت‌کننده</span><span class="num">۴ / ۸</span></div>
+</section>
+
+<!-- ================= صفحهٔ 5 ================= -->
+<section class="page">
+  <div class="hdr"><span>فناوری و داده</span><span>آنچه اکنون داریم و آنچه باید ساخته شود</span></div>
+  <h1 class="small">معماری پیشنهادی و تعریف عملیاتی تماس چشمی</h1>
+  <p>پیشنهاد من دو خروجی جدا با Flutter برای شرکت‌کننده و ادمین است؛ بخش‌های مشترک کوچک، و یک سرویس Python / FastAPI برای حساب، جلسه و داده. مدل نگاه در پردازش مستقل اجرا می‌شود تا ساخت ویدئو یا خروجی داده آن را متوقف نکند.</p>
+  <div class="arch">
+    <div>اپ شرکت‌کننده</div><div class="core">سرویس حساب و جلسه</div><div>مدل نگاهِ پژوهش</div>
+    <div>پنل پژوهشگر</div><div class="core">پایگاه داده و فایل خصوصی</div><div>سرویس ساخت محتوا (فقط مسیر چهرهٔ سخنگو)</div>
+  </div>
+  <p>کلید API روی سرور می‌ماند. موضوع، نام نمایشی و متن تأییدشده برای ارائه‌دهنده ارسال می‌شود؛ تصویر دوربین، ایمیل و دادهٔ نگاه برای تولید ویدئو لازم نیستند.</p>
+
+  <h2>تعریف عملیاتی تماس چشمی و مرز دقت</h2>
+  <p>خانم دکتر تأکید کرده که کل هدف، ارزیابی تماس چشمی است. این هدف در سند ثابت است. آنچه باید روشن باشد، توان اندازه‌گیری فعلی است: نمونهٔ L2CS-Net در دو جلسه با یک وب‌کم و یک نفر، خطای میانهٔ حدود ۱۵۰ تا ۱۶۴ پیکسل داشت. با این خطا، تفکیک یک جعبهٔ کوچک چشم در چهره‌ای با اندازهٔ معمول قابل اتکا نیست. راه‌حل، تغییر هدف نیست؛ سه اقدام است: <span class="tag">۱٫۱</span></p>
+  <ol>
+    <li><b>تعریف ناحیه‌ای:</b> «ناحیهٔ چشم» یعنی نیمهٔ بالایی صورت از خط ابرو تا زیر چشم‌ها؛ «ناحیهٔ دهان» یعنی نیمهٔ پایینی؛ به‌علاوهٔ «بیرون صورت» و «نامطمئن». این همان تقسیم‌بندی مرسوم در پژوهش‌های تماس چشمی است و در برابر خطا مقاوم‌تر از جعبهٔ کوچک چشم است.</li>
+    <li><b>اندازهٔ محرک:</b> چهره طوری نمایش داده می‌شود که ارتفاع ناحیهٔ چشم دست‌کم چند برابر خطای اندازه‌گیری همان دستگاه باشد. اندازهٔ واقعی ناحیه‌ها به پیکسل در هر جلسه ثبت می‌شود.</li>
+    <li><b>اعتبارسنجی هر جلسه:</b> پس از کالیبراسیون، آزمون مستقل با هدف‌هایی در ناحیهٔ چشم، دهان و بیرون صورت، در اندازهٔ واقعی محرک. معیار قبولی جای‌نگهدار: دست‌کم ۸۰٪ هدف‌ها درست طبقه‌بندی شوند و سهم نامطمئن زیر ۲۰٪ باشد. اعداد نهایی با تیم پژوهش تعیین می‌شود. صرفاً کم‌بودن خطای پیکسلی کافی نیست.</li>
+  </ol>
+  <div class="callout"><p>اگر اعتبارسنجی رد شود، نتیجهٔ سطح چشم «قابل ارزیابی نیست» می‌شود، ولی نتیجهٔ سطح صورت (داخل/بیرون) همچنان گزارش می‌شود. تمرین بدون امتیاز پژوهشی می‌تواند با تنظیم پژوهشگر ادامه یابد؛ نتیجهٔ آن به‌عنوان بهبود تماس چشمی گزارش نمی‌شود.</p></div>
+  <p><b>وب‌کم‌های جدید و ردیاب پژوهشی:</b> خانم دکتر به بهبود وب‌کم‌ها اشاره کرده و مقایسه با ردیاب پژوهشی را ممکن دانسته است. آزمون اعتبارسنجی به دوربین خاصی وابسته نیست و دقت واقعی هر دوربین را نشان می‌دهد؛ دوربین بهتر خودبه‌خود نتیجهٔ بهتر می‌گیرد. پیش از پایلوت، نتیجهٔ واقعی این آزمون روی وب‌کم فعلی به خانم دکتر نشان داده می‌شود. مقایسه با ردیاب پژوهشی به‌عنوان یک روز آزمون با زیرمجموعه‌ای از افراد در پایلوت برنامه‌ریزی می‌شود، در صورت دسترسی به ردیاب آزمایشگاه. <span class="tag">۱٫۱</span></p>
+
+  <div class="ftr"><span>دقت روی موبایل و ناحیهٔ چشم، تحویل نیازمند آزمون واقعی است</span><span class="num">۵ / ۸</span></div>
+</section>
+
+<!-- ================= صفحهٔ 6 ================= --><section class="page">
+  <div class="hdr"><span>فناوری و داده (ادامه)</span><span>دستگاه‌ها، ذخیره‌سازی، حریم خصوصی و برنامهٔ ساخت</span></div>
+<h1 class="small">وب‌کم PC و دوربین موبایل</h1>
+  <p>نمونهٔ فعلی L2CS-Net سرویس محلی همان کامپیوتر است و روی موبایل آفلاین اجرا نمی‌شود. ابتدا مسیر تحت‌نظارت PC تثبیت می‌شود. برای موبایل، رابط انگلیسی روی HTTPS و سرویس پژوهشیِ احراز هویت‌شده طراحی می‌شود؛ در این حالت برش صورت با اطلاع و رضایت فرد برای پردازش به سرور پژوهش می‌رود و پیش‌فرض ذخیره نمی‌شود. اجرای کاملاً روی گوشی، ارتقای جداگانه است.</p>
+
+  <h2>در هر جلسه چه ذخیره می‌شود؟</h2>
+  <p>کد فرد و رضایت، نسخهٔ پروتکل/مدل/محتوا، مشخصات دوربین و اندازهٔ صفحه، کالیبراسیون و نتیجهٔ اعتبارسنجی، اندازهٔ ناحیه‌ها به پیکسل، نقطهٔ تخمینی و اعتبار هر نمونه، زمان ویدئو، موقعیت چشم‌ها و عدد، پاسخ‌ها، مرحلهٔ چهره، راحتی هر مرحله و وقفه‌ها. برای چهرهٔ متحرک، محدودهٔ چشم‌ها باید با زمان ویدئو جابه‌جا و بازبینی شود. بازپخش و تحلیل با زمان ثبت فریم و زمان پخش محتوا همگام می‌شوند؛ داده‌های قدیمی، مکث و افت فریم مشخص می‌شوند. هموارکردن نمودار، دقت علمی تازه ایجاد نمی‌کند.</p>
+
+  <h2>دادهٔ خام و حریم خصوصی</h2>
+  <p>دادهٔ خام پیش‌فرض، اعداد نگاه و رخدادهای جلسه است؛ ضبط صوت یا تصویر فرد انتخاب جداگانه می‌خواهد. فرد می‌تواند دادهٔ خام خودش را دریافت کند. دادهٔ پژوهش با کد نگهداری می‌شود و به جمعیت‌شناسی متصل است؛ «کاملاً ناشناس» نامیده نمی‌شود. محل نگهداری، مدت، دسترسی و رویهٔ انصراف پیش از ورود شرکت‌کننده تعیین می‌شوند.</p>
+  <h2>برنامهٔ ساخت و مالک تحویل</h2>
+<table>
+    <tr><th style="width:34mm">گام</th><th>خروجی قابل بررسی</th></tr>
+    <tr><td class="k">۱ · پایهٔ دو برنامه</td><td>رابط انگلیسی، ورود، پروفایل، برگهٔ اطلاعات سه‌بخشی و رضایت، فرم جمعیت‌شناختی، نقش‌ها و دعوت. آزمون اینکه هیچ کاربر به دادهٔ فرد یا مطالعهٔ دیگر دسترسی ندارد.</td></tr>
+    <tr><td class="k">۲ · جلسه و اندازه‌گیری</td><td>دوربین، کالیبراسیون، اعتبارسنجی ناحیه‌ای چشم/دهان/بیرون، ثبت و توقف/ادامه. آزمون PC و سپس مسیر امن Android؛ بدون ادعای دقت از تست مصنوعی. نمایش نتیجهٔ واقعی اعتبارسنجی به خانم دکتر.</td></tr>
+    <tr><td class="k">۳الف · چهرهٔ سخنگو</td><td><span class="en">Interest Conversation</span> با محتوای نمونهٔ مصوب، شخصی‌سازی و شاخه‌های تأییدشده؛ آزمون پایه و پایانی مشترک.</td></tr>
+    <tr><td class="k">۳ب · تبدیل تدریجی</td><td><span class="en">Gradual Face Practice</span> به‌عنوان مقصد اصلی: مراحل شکل/عدد، پرسش راحتی هر مرحله، حد نهایی عدد از پروتکل، ثبت تغییر مرحله و پاسخ‌ها.</td></tr>
+    <tr><td class="k">۴ · پژوهش و داده</td><td>پنل جلسات، بازپخش تخمین نگاه، دو سطح نتیجهٔ نگاه، مقایسه با کنترل کیفیت، خروجی CSV/JSON کدگذاری‌شده همراه جمعیت‌شناسی و نسخه‌ها، دریافت دادهٔ خام توسط فرد، قواعد حذف داده.</td></tr>
+    <tr><td class="k">۵ · اتصال هوش مصنوعی</td><td>تولید متن/ویدئو و واکنش‌های شاخه‌ای، بازبینی، صف کار، سقف هزینه و مدیریت خطا. انتخاب API و کلید معتبر برای این گام لازم است.</td></tr>
+    <tr><td class="k">۶ · پایلوت تحت‌نظارت</td><td>آزمون با دستگاه و افراد هدف، بررسی راحتی و فهم، تثبیت آستانه‌های علمی، اصلاح تجربهٔ کاربری؛ یک روز مقایسه با ردیاب پژوهشی در صورت دسترسی.</td></tr>
+    <tr><td class="k">۷ · آواتار تعاملی زنده</td><td>فاز بعد: آواتار جریانی با تشخیص گفتار و پاسخ محدود به موضوع مصوب. پس از پایلوت جداگانه برآورد می‌شود.</td></tr>
+  </table>
+<div class="ftr"><span>دقت روی موبایل و ناحیهٔ چشم، تحویل نیازمند آزمون واقعی است</span><span class="num">۶ / ۸</span></div>
+</section>
+<!-- ================= صفحهٔ 7 ================= -->
+<section class="page">
+  <div class="hdr"><span>ترتیب اجرا و نقاط تصمیم</span><span>بعد از مطالعهٔ این طراحی</span></div>
+  <h1 class="small">تصمیم‌ها، پرسش‌های باز و پایهٔ طراحی</h1>
+
+  <h2>قبل از کدام مرحله چه تصمیمی لازم است؟</h2>
+  <p><b>برای شروع ساخت:</b> بررسی شما روی ساختار صفحه‌ها، دو برنامهٔ Flutter و شیوهٔ اجرای دو مسیر.</p>
+  <p><b>برای محتوای نهایی، با نظر خانم دکتر:</b> بازیگر فیلم‌شده یا آواتار واقع‌گرا؛ انتخاب چهره/صدا؛ تعداد نقاط تعامل؛ مدت جلسه؛ جای نهایی عدد و قواعد تغییر شکل.</p>
+  <p><b>قبل از اتصال پولی:</b> ارائه‌دهنده، شرایط داده، کلید و سقف هزینه. هزینه یا حساب پولی در این مرحله فعال نشده است.</p>
+  <p><b>پیش از جذب شرکت‌کننده:</b> محدودهٔ سن و شرایط ورود، معیار نهایی اعتبارسنجی، مجوزهای پژوهش، متن برگهٔ اطلاعات، میزبان و نگهداری داده.</p>
+
+  <h2>پرسش‌های باز برای خانم دکتر</h2>
+  <p class="muted">پرسش «چه معیار ارتباطی و پاسخی مهم است؟» برای ایشان روشن نبود. بازنویسی ساده و عینی: <span class="tag">۱٫۱</span></p>
+  <ol>
+    <li>آیا شرکت‌کننده باید بتواند عدد بخواند و با صفحه‌کلید یا لمس پاسخ دهد؟ اگر نه، جایگزین نماد یا تصویر برای چه کسانی فعال شود؟</li>
+    <li>آیا فهم انگلیسی گفتاری شرط ورود است؟</li>
+    <li>چه کسی باید از مطالعه کنار گذاشته شود؟ برای مثال بینایی اصلاح‌نشده، حساسیت به نور یا ناتوانی در رضایت آگاهانه.</li>
+    <li>عدد در مسیر تدریجی تا کجا نزدیک شود: کنار چشم‌ها، روی ناحیهٔ چشم، یا هرگز داخل ناحیهٔ چشم؟</li>
+    <li>آواتار واقع‌گرای هوش مصنوعی یا بازیگر فیلم‌شده؟ چند نقطهٔ تعامل در هر جلسه؟</li>
+    <li>آیا ردیاب پژوهشی برای یک روز مقایسه در دسترس هست؟</li>
+  </ol>
+  <p class="muted">برای تولید ویدئوی ازپیش‌آماده، APIهایی مانند HeyGen گزینهٔ قابل بررسی‌اند و برای فاز آواتار زنده، سرویس‌های جریانی همان ارائه‌دهنده‌ها. این طراحی به یک فروشنده وابسته نمی‌شود و خرید سرویس را مفروض نمی‌گیرد.</p>
+
+  <h2>پایهٔ این طراحی</h2>
+  <p>درخواست‌های شما، دو پیشنهاد قبلی و ۹ نظر خانم دکتر روی PDF پیشنهاد ۲٫۰ که در ۲۸ سپتامبر ثبت شد و در پیوست صفحهٔ ۸ یک‌به‌یک پاسخ داده شده است. تحقیق اولیهٔ همین پروژه و بررسی فعلی README نمونه‌های Flutter و L2CS. مستندات Flutter Web، شرایط دسترسی دوربین و HTTPS؛ API رسمی تولید ویدئو HeyGen. قابلیت‌های فنی این منابع، اثبات اثربخشی بالینی نیستند. جزئیات صفحه‌ها، ساختار داده، حالت‌های خطا و آزمون‌ها در سند معماری و دامنهٔ کار در خلاصهٔ محصول ثبت شده‌اند.</p>
+  <p><b>آنچه پس از بررسی شما اجرا می‌شود:</b> دو برنامهٔ مجزا با پروفایل و دسترسی مشخص؛ هر دو مسیر تمرین روی یک سامانهٔ ثبت و ارزیابی جلسه؛ و پنلی که داده و محدودیت اندازه‌گیری را قابل دیدن و استخراج می‌کند.</p>
+  <h2>پیام پیشنهادی برای خانم دکتر (دربارهٔ نظر ۲)</h2>
+  <p class="muted">این متن را می‌توانید همراه سند بفرستید تا اختلاف برداشت دربارهٔ تماس چشمی بسته شود.</p>
+  <div class="letter">
+    <p>Thank you for the comments. Eye contact remains the primary outcome of the product; nothing in the design changes that. My earlier sentence was about the current measurement, not the goal: in two test sessions, our webcam-based prototype had a median error of roughly 150–164 screen pixels, which is larger than a small eye box on a normally sized face.</p>
+    <p>To measure eye contact reliably we therefore (1) define the eye region as the upper half of the face and the mouth region as the lower half, as in eye-tracking studies of face attention; (2) show the face large enough that the eye region is several times the measurement error; and (3) run a short validation after every calibration, with targets in the eye region, the mouth region and outside the face. When validation passes, the session reports time in the eye region. When it fails, the panel says “not evaluable” for the eye level and reports face-region attention only, so no session is over-interpreted.</p>
+    <p>Newer webcams should pass validation more easily, and the validation will show the real accuracy of whichever camera is used. Before the pilot I will share the actual validation results with you, and if a research-grade tracker is available for one day, we can compare a subset of participants directly.</p>
+  </div>
+  <div class="ftr"><span>سند طراحی v1.1 · نه گزارش تحویل نرم‌افزار یا پروتکل مصوب</span><span class="num">۷ / ۸</span></div>
+</section>
+
+<!-- ================= صفحهٔ 8 ================= -->
+<section class="page">
+  <div class="hdr"><span>پیوست</span><span>پاسخ به ۹ نظر خانم دکتر روی پیشنهاد ۲٫۰ (۲۸ سپتامبر)</span></div>
+  <h1 class="small">هر نظر کجا اعمال شد</h1>
+  <table class="changes">
+    <tr><th>#</th><th>جملهٔ هایلایت‌شده در پیشنهاد ۲٫۰</th><th class="en">Comment (verbatim)</th><th>تغییر در نسخهٔ ۱٫۱</th></tr>
+    <tr><td>۱</td><td>Suggested starting point: pilot Approach 1</td><td class="en">We definitely want to move towards approach 2, but approach one is a good start</td><td>روش ۱ نقطهٔ شروع و روش ۲ مقصد اصلی؛ هر دو در همین تحویل، گام ۳الف و ۳ب. (ص ۱، ۳، ۶)</td></tr>
+    <tr><td>۲</td><td>current evidence does not justify reliable eye-versus-mouth classification</td><td class="en">I disagree, the whole point is to evaluate eye contact</td><td>هدف چشم ثابت ماند. تعریف ناحیه‌ای نیمهٔ بالایی/پایینی صورت، اندازهٔ محرک، اعتبارسنجی هر جلسه با معیار قبولی، و دو سطح نتیجه در پنل. (ص ۱، ۴، ۵)</td></tr>
+    <tr><td>۳</td><td>adults</td><td class="en">this is intended for youg adults</td><td>مخاطب: بزرگسالان جوان. (ص ۱)</td></tr>
+    <tr><td>۴</td><td>What communication and response criteria matter?</td><td class="en">I do not understand the question</td><td>پرسش با شش گزینهٔ عینی بازنویسی شد؛ نرم‌افزار همهٔ شیوه‌های پاسخ را پشتیبانی می‌کند تا تصمیم بعداً بدون تغییر کد گرفته شود. (ص ۲، ۷)</td></tr>
+    <tr><td>۵</td><td>What should the primary outcome be</td><td class="en">more time spend in the eyes, without discomfort, while being able to maintain attention to the content of the conversation</td><td>عیناً هدف مشترک شد؛ «بهبود» فقط با برقراری هر سه شرط. (ص ۱، ۴)</td></tr>
+    <tr><td>۶</td><td>filmed person, prerecorded video or avatar?</td><td class="en">It should be as realistic and as interactive as possible</td><td>شخصی‌سازی، پرسش‌های چهره و واکنش‌های شاخه‌ای در سطح ۱؛ آواتار زنده به‌عنوان گام ۷؛ تصمیم بازیگر یا آواتار با ایشان. (ص ۳، ۷)</td></tr>
+    <tr><td>۷</td><td>stopping and recovery rules</td><td class="en">Participants can stop any time, if they feel that this is too much. They are free to start again if they feel like it.</td><td>توقف و شروع دوباره بدون اجازهٔ پژوهشگر؛ توقف دادهٔ راحتی است نه خطا؛ پرسش راحتی در هر مرحله. (ص ۲، ۳)</td></tr>
+    <tr><td>۸</td><td>compared with a research-grade eye tracker</td><td class="en">It could, although the new webcam are amazingly getting better.</td><td>اعتبارسنجی مستقل از دوربین؛ نمایش نتیجهٔ واقعی پیش از پایلوت؛ یک روز مقایسه با ردیاب در پایلوت در صورت دسترسی. (ص ۵، ۶)</td></tr>
+    <tr><td>۹</td><td>child assent</td><td class="en">There will not be children involved. Adults should give consent after reading an information form that states the aims, the potential sources of discomfort, and the potential benefits. Ideally participants will have the raw data (if they want), we should eventually be working on deidentified (but coded so that we can correlated with demographics, etc) data</td><td>بدون کودک؛ برگهٔ اطلاعات سه‌بخشی؛ دریافت دادهٔ خام توسط فرد؛ فرم جمعیت‌شناختی متصل به کد؛ خروجی کدگذاری‌شده با جمعیت‌شناسی. (ص ۱، ۲، ۴، ۶)</td></tr>
+  </table>
+
+  <div class="ftr"><span>پیوست نسخهٔ ۱٫۱ · نظرها عیناً از PDF مشترک Acrobat نقل شده‌اند</span><span class="num">۸ / ۸</span></div>
+</section>
+</body>
+</html>
