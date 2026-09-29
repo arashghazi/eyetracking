@@ -38,6 +38,13 @@ class SqlUnitOfWork:
         self.consents = r.SqlConsentRepo(self.session)
         self.profiles = r.SqlProfileRepo(self.session)
         self.demographics = r.SqlDemographicsRepo(self.session)
+        self.sessions = r.SqlSessionRepo(self.session)
+        self.calibrations = r.SqlCalibrationRepo(self.session)
+        self.validations = r.SqlValidationRepo(self.session)
+        self.layouts = r.SqlLayoutRepo(self.session)
+        self.samples = r.SqlSampleRepo(self.session)
+        self.events = r.SqlEventRepo(self.session)
+        self.measurement_settings = r.SqlMeasurementSettingsRepo(self.session)
 
     def commit(self) -> None:
         self.session.commit()

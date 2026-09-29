@@ -14,3 +14,4 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
     cors_origins: list[str] = ["http://localhost:8080", "http://localhost:5173", "http://localhost:3000"]
+    gaze_in_api: bool = True

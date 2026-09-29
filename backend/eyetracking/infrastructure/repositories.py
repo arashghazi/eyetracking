@@ -164,3 +164,101 @@ class SqlDemographicsRepo(_Repo):
         self.s.add(a)
         self.s.flush()
         return a
+
+
+# ---------- step 2 repositories ----------
+
+from eyetracking.domain.measurement import (  # noqa: E402
+    Calibration,
+    GazeSample,
+    MeasurementSettings,
+    Session as MeasurementSession,
+    SessionEvent,
+    StimulusLayout,
+    Validation,
+)
+
+
+class SqlSessionRepo(_Repo):
+    def add(self, s: MeasurementSession) -> MeasurementSession:
+        self.s.add(s)
+        self.s.flush()
+        return s
+
+    def get(self, session_id: int) -> MeasurementSession | None:
+        return self.s.get(MeasurementSession, session_id)
+
+    def list_for_participant(self, participant_id: int) -> list[MeasurementSession]:
+        return list(self.s.scalars(select(MeasurementSession).where(MeasurementSession.participant_id == participant_id).order_by(MeasurementSession.id.desc())))
+
+    def list_for_study(self, study_id: int) -> list[MeasurementSession]:
+        return list(self.s.scalars(select(MeasurementSession).where(MeasurementSession.study_id == study_id).order_by(MeasurementSession.id.desc())))
+
+
+class SqlCalibrationRepo(_Repo):
+    def add(self, c: Calibration) -> Calibration:
+        self.s.add(c)
+        self.s.flush()
+        return c
+
+    def latest(self, session_id: int) -> Calibration | None:
+        return self.s.scalar(select(Calibration).where(Calibration.session_id == session_id).order_by(Calibration.id.desc()).limit(1))
+
+
+class SqlValidationRepo(_Repo):
+    def add(self, v: Validation) -> Validation:
+        self.s.add(v)
+        self.s.flush()
+        return v
+
+    def latest(self, session_id: int) -> Validation | None:
+        return self.s.scalar(select(Validation).where(Validation.session_id == session_id).order_by(Validation.id.desc()).limit(1))
+
+
+class SqlLayoutRepo(_Repo):
+    def add(self, l: StimulusLayout) -> StimulusLayout:
+        self.s.add(l)
+        self.s.flush()
+        return l
+
+    def latest(self, session_id: int) -> StimulusLayout | None:
+        return self.s.scalar(select(StimulusLayout).where(StimulusLayout.session_id == session_id).order_by(StimulusLayout.id.desc()).limit(1))
+
+
+class SqlSampleRepo(_Repo):
+    def add_many(self, samples: list[GazeSample]) -> int:
+        self.s.add_all(samples)
+        self.s.flush()
+        return len(samples)
+
+    def for_session(self, session_id: int) -> list[GazeSample]:
+        return list(self.s.scalars(select(GazeSample).where(GazeSample.session_id == session_id).order_by(GazeSample.t_ms, GazeSample.id)))
+
+    def page(self, session_id: int, offset: int, limit: int) -> tuple[int, list[GazeSample]]:
+        total = int(self.s.scalar(select(func.count()).select_from(GazeSample).where(GazeSample.session_id == session_id)) or 0)
+        items = list(
+            self.s.scalars(
+                select(GazeSample).where(GazeSample.session_id == session_id).order_by(GazeSample.t_ms, GazeSample.id).offset(offset).limit(limit)
+            )
+        )
+        return total, items
+
+
+class SqlEventRepo(_Repo):
+    def add(self, e: SessionEvent) -> SessionEvent:
+        self.s.add(e)
+        self.s.flush()
+        return e
+
+    def for_session(self, session_id: int) -> list[SessionEvent]:
+        return list(self.s.scalars(select(SessionEvent).where(SessionEvent.session_id == session_id).order_by(SessionEvent.t_ms, SessionEvent.id)))
+
+
+class SqlMeasurementSettingsRepo(_Repo):
+    def get(self, study_id: int) -> MeasurementSettings | None:
+        return self.s.scalar(select(MeasurementSettings).where(MeasurementSettings.study_id == study_id))
+
+    def save(self, m: MeasurementSettings) -> MeasurementSettings:
+        self.s.add(m)
+        self.s.flush()
+        return m

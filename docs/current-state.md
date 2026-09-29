@@ -16,8 +16,13 @@ Updated: 2026-09-29 · design authority: docs/design/EyeTracking-Product-Design-
 
 **Flutter apps (3.47, only dependency `http`)** — done for step 1: `packages/core` (theme, API client, models), `apps/participant` (sign-in, invitation, readiness home, sheet + consent, profile, demographics, my data), `apps/admin` (studies, participants, invitations, sheet, demographics form, members). `flutter analyze` clean; tests core 24 / participant 34 / admin 25. Not yet: browser click-through, Android build, persisted token. See docs/features/step1-flutter.md.
 
-## Not started (design steps 2–7)
-Camera, calibration and regional validation; the two practice paths; sessions panel and replay; AI content pipeline; pilot; live avatar.
+## Build step 2 — session and measurement (backend done; Flutter in progress)
+- Backend: sessions with readiness gate, camera check, calibration fit and re-calibration, regional validation with reasons, layouts and sample recording (only while running and calibrated), events (pause/resume/end; camera/orientation/zoom changes invalidate calibration), coverage where missing ≠ not looking, eye-region attention only with a passed validation on a non-synthetic estimator. Per-study measurement settings.
+- Gaze service: swappable estimator; synthetic head-proxy for development, L2CS-Net adapter (weights not in repo), Haar face detector; standalone on :8100 or authenticated under `/gaze/*`.
+- Tests: 28 backend (pytest). No accuracy claims: all measurement tests use synthetic linear data. See docs/features/step2-backend.md and docs/api/step2-measurement.md.
+
+## Not started (design steps 3–7)
+The two practice paths; sessions replay and analysis; AI content pipeline; pilot; live avatar.
 
 ## Open decisions (design p. 7)
 Age range and inclusion criteria; final number position and comfort rule; filmed actor vs realistic avatar; validation pass thresholds (placeholders 80 % / 20 %); research-grade tracker access.

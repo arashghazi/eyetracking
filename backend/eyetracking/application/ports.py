@@ -102,3 +102,64 @@ class TokenIssuer(Protocol):
 
 class Clock(Protocol):
     def now(self) -> datetime: ...
+
+
+# ---------- step 2: sessions and measurement ----------
+
+from eyetracking.domain.measurement import (  # noqa: E402
+    Calibration,
+    GazeSample,
+    MeasurementSettings,
+    Session,
+    SessionEvent,
+    StimulusLayout,
+    Validation,
+)
+
+
+class SessionRepo(Protocol):
+    def add(self, s: Session) -> Session: ...
+    def get(self, session_id: int) -> Session | None: ...
+    def list_for_participant(self, participant_id: int) -> list[Session]: ...
+    def list_for_study(self, study_id: int) -> list[Session]: ...
+
+
+class CalibrationRepo(Protocol):
+    def add(self, c: Calibration) -> Calibration: ...
+    def latest(self, session_id: int) -> Calibration | None: ...
+
+
+class ValidationRepo(Protocol):
+    def add(self, v: Validation) -> Validation: ...
+    def latest(self, session_id: int) -> Validation | None: ...
+
+
+class LayoutRepo(Protocol):
+    def add(self, l: StimulusLayout) -> StimulusLayout: ...
+    def latest(self, session_id: int) -> StimulusLayout | None: ...
+
+
+class SampleRepo(Protocol):
+    def add_many(self, samples: list[GazeSample]) -> int: ...
+    def for_session(self, session_id: int) -> list[GazeSample]: ...
+    def page(self, session_id: int, offset: int, limit: int) -> tuple[int, list[GazeSample]]: ...
+
+
+class EventRepo(Protocol):
+    def add(self, e: SessionEvent) -> SessionEvent: ...
+    def for_session(self, session_id: int) -> list[SessionEvent]: ...
+
+
+class MeasurementSettingsRepo(Protocol):
+    def get(self, study_id: int) -> MeasurementSettings | None: ...
+    def save(self, s: MeasurementSettings) -> MeasurementSettings: ...
+
+
+class MeasurementUnitOfWork(UnitOfWork, Protocol):
+    sessions: SessionRepo
+    calibrations: CalibrationRepo
+    validations: ValidationRepo
+    layouts: LayoutRepo
+    samples: SampleRepo
+    events: EventRepo
+    measurement_settings: MeasurementSettingsRepo

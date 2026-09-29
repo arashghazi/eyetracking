@@ -12,7 +12,7 @@ from eyetracking.domain.errors import AuthenticationFailed, Conflict, DomainErro
 from eyetracking.infrastructure.security import Argon2Hasher, JwtTokens, SystemClock
 from eyetracking.infrastructure.uow import SqlUnitOfWork, create_schema, make_engine, session_factory_for
 
-from .routers import auth, participant, studies
+from .routers import auth, participant, sessions, studies
 from .settings import Settings
 
 _STATUS = {NotFound: 404, Forbidden: 403, Conflict: 409, Invalid: 422, AuthenticationFailed: 401}
@@ -63,4 +63,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(participant.router)
     app.include_router(studies.router)
+    app.include_router(sessions.router)
+    if settings.gaze_in_api:
+        from fastapi import Depends
+
+        from eyetracking.gaze.service import build_router, estimator_from_env
+
+        from .deps import get_principal
+
+        # Secure path for phones: same estimator surface, bearer token required, frames never stored.
+        app.include_router(build_router(estimator_from_env()), prefix="/gaze", dependencies=[Depends(get_principal)])
     return app
