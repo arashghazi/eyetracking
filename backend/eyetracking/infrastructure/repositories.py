@@ -381,3 +381,48 @@ class SqlAccessLogRepo(_Repo):
 
     def list_for_study(self, study_id: int, limit: int) -> list[AccessLogEntry]:
         return list(self.s.scalars(select(AccessLogEntry).where(AccessLogEntry.study_id == study_id).order_by(AccessLogEntry.id.desc()).limit(limit)))
+
+
+# ---------- step 5 repositories ----------
+
+from datetime import datetime as _dt  # noqa: E402
+
+from eyetracking.domain.ai import AiBudget, GenerationJob  # noqa: E402
+
+
+class SqlJobRepo(_Repo):
+    def add(self, j: GenerationJob) -> GenerationJob:
+        self.s.add(j)
+        self.s.flush()
+        return j
+
+    def get(self, job_id: int) -> GenerationJob | None:
+        return self.s.get(GenerationJob, job_id)
+
+    def list_for_study(self, study_id: int, status: str | None, content_id: int | None) -> list[GenerationJob]:
+        q = select(GenerationJob).where(GenerationJob.study_id == study_id)
+        if status:
+            q = q.where(GenerationJob.status == status)
+        if content_id:
+            q = q.where(GenerationJob.content_id == content_id)
+        return list(self.s.scalars(q.order_by(GenerationJob.id.desc())))
+
+    def next_queued(self, now: _dt) -> GenerationJob | None:
+        q = (
+            select(GenerationJob)
+            .where(GenerationJob.status == "queued")
+            .where((GenerationJob.next_attempt_at.is_(None)) | (GenerationJob.next_attempt_at <= now))
+            .order_by(GenerationJob.id)
+            .limit(1)
+        )
+        return self.s.scalar(q)
+
+
+class SqlAiBudgetRepo(_Repo):
+    def get(self, study_id: int) -> AiBudget | None:
+        return self.s.scalar(select(AiBudget).where(AiBudget.study_id == study_id))
+
+    def save(self, b: AiBudget) -> AiBudget:
+        self.s.add(b)
+        self.s.flush()
+        return b

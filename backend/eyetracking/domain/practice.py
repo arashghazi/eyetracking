@@ -72,6 +72,7 @@ class ContentItem:
     face_id: str = ""
     voice_id: str = ""
     status: ContentStatus = ContentStatus.draft
+    text_reviewed: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     id: int | None = None

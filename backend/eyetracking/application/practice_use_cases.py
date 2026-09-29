@@ -150,6 +150,7 @@ def update_content(uow: PracticeUnitOfWork, clock: Clock, principal: Principal, 
     if changes.get("definition") is not None:
         validate_content(changes["definition"])
         c.definition = changes["definition"]
+        c.text_reviewed = False
     if changes.get("title") is not None:
         c.title = changes["title"].strip() or c.title
     if changes.get("topic_tags") is not None:

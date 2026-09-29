@@ -74,6 +74,7 @@ class ContentOut(BaseModel):
     face_id: str
     voice_id: str
     status: str
+    text_reviewed: bool = False
     media_keys: list[str]
     missing_media: list[str]
     definition: dict[str, Any] | None = None
@@ -142,7 +143,7 @@ def _protocol_out(p: Protocol, with_definition: bool) -> ProtocolOut:
 
 
 def _content_out(c: ContentItem, missing: list[str], with_definition: bool) -> ContentOut:
-    return ContentOut(id=c.id or 0, title=c.title, topic_tags=list(c.topic_tags), face_id=c.face_id, voice_id=c.voice_id, status=c.status.value, media_keys=c.media_keys(), missing_media=missing, definition=c.definition if with_definition else None)
+    return ContentOut(id=c.id or 0, title=c.title, topic_tags=list(c.topic_tags), face_id=c.face_id, voice_id=c.voice_id, status=c.status.value, text_reviewed=bool(c.text_reviewed), media_keys=c.media_keys(), missing_media=missing, definition=c.definition if with_definition else None)
 
 
 # ---------- protocols ----------

@@ -53,6 +53,8 @@ class SqlUnitOfWork:
         self.stage_results = r.SqlStageResultRepo(self.session)
         self.answers = r.SqlAnswerRepo(self.session)
         self.access_log = r.SqlAccessLogRepo(self.session)
+        self.jobs = r.SqlJobRepo(self.session)
+        self.ai_budgets = r.SqlAiBudgetRepo(self.session)
 
     def commit(self) -> None:
         self.session.commit()

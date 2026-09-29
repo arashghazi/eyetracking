@@ -162,6 +162,7 @@ def start_mappers() -> None:
     start_measurement_mappers()
     start_practice_mappers()
     start_research_mappers()
+    start_ai_mappers()
     _mapped = True
 
 
@@ -334,6 +335,7 @@ content_items = Table(
     Column("face_id", String(100), nullable=False, default=""),
     Column("voice_id", String(100), nullable=False, default=""),
     Column("status", Enum(ContentStatus, native_enum=False, length=20), nullable=False),
+    Column("text_reviewed", Boolean, nullable=False, default=False),
     Column("created_at", DateTime, nullable=False),
     Column("updated_at", DateTime, nullable=False),
 )
@@ -445,3 +447,48 @@ access_log = Table(
 
 def start_research_mappers() -> None:
     mapper_registry.map_imperatively(AccessLogEntry, access_log)
+
+
+# ---------- step 5 tables ----------
+
+from eyetracking.domain.ai import AiBudget, GenerationJob  # noqa: E402
+
+ai_budgets = Table(
+    "ai_budgets",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False, unique=True),
+    Column("cost_cap_units", Float, nullable=False, default=0.0),
+    Column("spent_units", Float, nullable=False, default=0.0),
+    Column("send_free_text", Boolean, nullable=False, default=False),
+)
+
+generation_jobs = Table(
+    "generation_jobs",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("kind", String(10), nullable=False),
+    Column("provider", String(40), nullable=False),
+    Column("content_id", Integer, ForeignKey("content_items.id"), nullable=False),
+    Column("status", String(12), nullable=False),
+    Column("assignment_id", Integer, nullable=True),
+    Column("segment_id", String(60), nullable=True),
+    Column("attempts", Integer, nullable=False, default=0),
+    Column("max_attempts", Integer, nullable=False, default=3),
+    Column("cost_estimate_units", Float, nullable=False, default=0.0),
+    Column("cost_actual_units", Float, nullable=False, default=0.0),
+    Column("error", Text, nullable=True),
+    Column("request", JSON, nullable=False, default=dict),
+    Column("result", JSON, nullable=False, default=dict),
+    Column("created_at", DateTime, nullable=False),
+    Column("started_at", DateTime, nullable=True),
+    Column("finished_at", DateTime, nullable=True),
+    Column("next_attempt_at", DateTime, nullable=True),
+    Index("ix_generation_jobs_study_status", "study_id", "status"),
+)
+
+
+def start_ai_mappers() -> None:
+    mapper_registry.map_imperatively(AiBudget, ai_budgets)
+    mapper_registry.map_imperatively(GenerationJob, generation_jobs)

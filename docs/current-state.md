@@ -26,8 +26,12 @@ Updated: 2026-09-29 · design authority: docs/design/EyeTracking-Product-Design-
 - Flutter: admin Replay (geometry + gaze dot, timeline, gaps, pauses, quality strip), Analysis (filters, table, groups, trend charts, exports, dictionary), Access log, participant data deletion, retention policy; participant data download and withdraw-and-erase.
 - Tests: 41 backend; Flutter core 107, participant 258, admin 250. Browser run in docs/features/step4-e2e.md. See docs/features/step4-backend.md, step4-flutter.md and docs/api/step4-research-data.md.
 
-## Not started (design steps 5–7)
-AI content pipeline; pilot; live avatar.
+## Build step 5 — AI content generation (backend done; Flutter in progress)
+- Swappable text and video providers (fake without key; Anthropic text with JSON-schema output; HeyGen video), job queue with retries and backoff, per-study cost cap, review flow (draft → text reviewed → videos → approve → attach), worker thread, access log. No live provider call yet.
+- Tests: 46 backend. See docs/features/step5-backend.md and docs/api/step5-ai-content.md.
+
+## Not started (design steps 6–7)
+Supervised pilot; live avatar.
 
 ## Open decisions (design p. 7)
 Age range and inclusion criteria; final number position and comfort rule; filmed actor vs realistic avatar; validation pass thresholds (placeholders 80 % / 20 %); research-grade tracker access.
