@@ -68,7 +68,7 @@ def update_study_settings(uow: MeasurementUnitOfWork, principal: Principal, stud
 
 
 def create_session(
-    uow: MeasurementUnitOfWork, principal: Principal, device: dict, screen: dict, camera: dict, gaze_model: dict
+    uow: MeasurementUnitOfWork, principal: Principal, device: dict, screen: dict, camera: dict, gaze_model: dict, assignment_id: int | None = None
 ) -> Session:
     p = require_participant(principal)
     assert p.id is not None
@@ -93,6 +93,10 @@ def create_session(
         synthetic=synthetic,
         notes=["synthetic_estimator"] if synthetic else [],
     )
+    if assignment_id is not None:
+        from .practice_use_cases import bind_assignment
+
+        bind_assignment(uow, principal, s, assignment_id)
     s = uow.sessions.add(s)
     uow.commit()
     return s
@@ -247,6 +251,13 @@ def add_event(uow: MeasurementUnitOfWork, clock: Clock, principal: Principal, se
         s.status = SessionStatus.ended
         s.ended_at = clock.now()
         s.end_reason = reason
+        from .practice_use_cases import on_session_end
+
+        on_session_end(uow, s)
+    elif type_ == "comfort_answer":
+        from .practice_use_cases import validate_comfort_payload
+
+        validate_comfort_payload(uow, s, payload)
     uow.events.add(SessionEvent(session_id=s.id or 0, t_ms=int(t_ms), type=type_, payload=payload))
     uow.commit()
     return s
@@ -269,7 +280,7 @@ def summarize(uow: MeasurementUnitOfWork, s: Session) -> dict:
     segments = segments_from_events(events, last_t)
     cov = coverage(samples, segments)
     shares = region_shares(cov)
-    return {
+    base = {
         "id": s.id,
         "status": s.status.value,
         "created_at": s.created_at,
@@ -304,6 +315,9 @@ def summarize(uow: MeasurementUnitOfWork, s: Session) -> dict:
         "events_count": len(events),
         "notes": notes,
     }
+    from .practice_use_cases import practice_summary
+
+    return practice_summary(uow, s, base)
 
 
 def my_session(uow: MeasurementUnitOfWork, principal: Principal, session_id: int) -> dict:
@@ -365,6 +379,9 @@ def get_study_session(uow: MeasurementUnitOfWork, principal: Principal, study_id
             "events": [{"t_ms": e.t_ms, "type": e.type, "payload": e.payload} for e in uow.events.for_session(s.id or 0)],
         }
     )
+    from .practice_use_cases import practice_detail
+
+    summary.update(practice_detail(uow, s))
     return summary
 
 

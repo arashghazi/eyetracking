@@ -23,8 +23,12 @@ Updated: 2026-09-29 · design authority: docs/design/EyeTracking-Product-Design-
 - Tests: 29 backend (pytest); Flutter core 45, participant 91, admin 49; end-to-end run in headless Chromium recorded in docs/features/step2-e2e.md with screenshots. No accuracy claims: every number so far comes from synthetic data or a fake face.
 - Pending for step 2 sign-off: run on a PC with a real webcam and the published L2CS weights (`EYETRACKING_GAZE_MODEL=l2cs`, `EYETRACKING_GAZE_WEIGHTS=...`) and show the real validation result to the reviewer; Android capture.
 
-## Not started (design steps 3–7)
-The two practice paths; sessions replay and analysis; AI content pipeline; pilot; live avatar.
+## Build step 3 — the two practice paths (backend done; Flutter in progress)
+- Protocols with immutable published versions (path, baseline/post seconds, comfort scale, progression rules, gradual stages with face level and number zone, `final_zone_limit` default near_eyes); content library with segments, branches, comprehension questions, media upload and approval; assignments with topic confirmation and content attachment; trials, server-side stage decisions that never advance on wrong answers, discomfort or invalid data; interaction and comprehension answers; three outcomes and the all-three improvement rule in every session summary.
+- Tests: 35 backend. See docs/features/step3-backend.md and docs/api/step3-practice.md.
+
+## Not started (design steps 4–7)
+Sessions replay and analysis; AI content pipeline; pilot; live avatar.
 
 ## Open decisions (design p. 7)
 Age range and inclusion criteria; final number position and comfort rule; filmed actor vs realistic avatar; validation pass thresholds (placeholders 80 % / 20 %); research-grade tracker access.

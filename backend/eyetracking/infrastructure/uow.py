@@ -45,6 +45,13 @@ class SqlUnitOfWork:
         self.samples = r.SqlSampleRepo(self.session)
         self.events = r.SqlEventRepo(self.session)
         self.measurement_settings = r.SqlMeasurementSettingsRepo(self.session)
+        self.protocols = r.SqlProtocolRepo(self.session)
+        self.content = r.SqlContentRepo(self.session)
+        self.media = r.SqlMediaRepo(self.session)
+        self.assignments = r.SqlAssignmentRepo(self.session)
+        self.trials = r.SqlTrialRepo(self.session)
+        self.stage_results = r.SqlStageResultRepo(self.session)
+        self.answers = r.SqlAnswerRepo(self.session)
 
     def commit(self) -> None:
         self.session.commit()

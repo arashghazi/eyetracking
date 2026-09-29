@@ -15,3 +15,5 @@ class Settings(BaseSettings):
     bootstrap_admin_password: str | None = None
     cors_origins: list[str] = ["http://localhost:8080", "http://localhost:5173", "http://localhost:3000"]
     gaze_in_api: bool = True
+    media_dir: str = "./media"
+    media_url_ttl_seconds: int = 6 * 3600

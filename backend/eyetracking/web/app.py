@@ -9,10 +9,11 @@ from fastapi.responses import JSONResponse
 
 from eyetracking.application import use_cases
 from eyetracking.domain.errors import AuthenticationFailed, Conflict, DomainError, Forbidden, Invalid, NotFound
-from eyetracking.infrastructure.security import Argon2Hasher, JwtTokens, SystemClock
+from eyetracking.infrastructure.media import LocalMediaStore
+from eyetracking.infrastructure.security import Argon2Hasher, HmacMediaSigner, JwtTokens, SystemClock
 from eyetracking.infrastructure.uow import SqlUnitOfWork, create_schema, make_engine, session_factory_for
 
-from .routers import auth, participant, sessions, studies
+from .routers import auth, participant, practice, sessions, studies
 from .settings import Settings
 
 _STATUS = {NotFound: 404, Forbidden: 403, Conflict: 409, Invalid: 422, AuthenticationFailed: 401}
@@ -42,6 +43,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.hasher = hasher
     app.state.tokens = JwtTokens(settings.jwt_secret, settings.jwt_expire_minutes)
     app.state.clock = SystemClock()
+    app.state.media_store = LocalMediaStore(settings.media_dir)
+    app.state.media_signer = HmacMediaSigner(settings.jwt_secret, settings.media_url_ttl_seconds)
 
     app.add_middleware(
         CORSMiddleware,
@@ -64,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(participant.router)
     app.include_router(studies.router)
     app.include_router(sessions.router)
+    app.include_router(practice.router)
     if settings.gaze_in_api:
         from fastapi import Depends
 

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import tempfile
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -64,6 +66,7 @@ def client() -> TestClient:
         jwt_secret="test-secret",
         bootstrap_admin_email=ADMIN[0],
         bootstrap_admin_password=ADMIN[1],
+        media_dir=tempfile.mkdtemp(prefix="eyetracking-media-"),
     )
     app = create_app(settings)
     with TestClient(app) as c:

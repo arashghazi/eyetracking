@@ -262,3 +262,104 @@ class SqlMeasurementSettingsRepo(_Repo):
         self.s.add(m)
         self.s.flush()
         return m
+
+
+# ---------- step 3 repositories ----------
+
+from eyetracking.domain.practice import (  # noqa: E402
+    Answer,
+    Assignment,
+    ContentItem,
+    ContentMedia,
+    Protocol as PracticeProtocol,
+    StageResult,
+    Trial,
+)
+
+
+class SqlProtocolRepo(_Repo):
+    def add(self, p: PracticeProtocol) -> PracticeProtocol:
+        self.s.add(p)
+        self.s.flush()
+        return p
+
+    def get(self, protocol_id: int) -> PracticeProtocol | None:
+        return self.s.get(PracticeProtocol, protocol_id)
+
+    def list_for_study(self, study_id: int) -> list[PracticeProtocol]:
+        return list(self.s.scalars(select(PracticeProtocol).where(PracticeProtocol.study_id == study_id).order_by(PracticeProtocol.id)))
+
+    def max_version(self, study_id: int) -> int:
+        return int(self.s.scalar(select(func.max(PracticeProtocol.version)).where(PracticeProtocol.study_id == study_id)) or 0)
+
+
+class SqlContentRepo(_Repo):
+    def add(self, c: ContentItem) -> ContentItem:
+        self.s.add(c)
+        self.s.flush()
+        return c
+
+    def get(self, content_id: int) -> ContentItem | None:
+        return self.s.get(ContentItem, content_id)
+
+    def list_for_study(self, study_id: int) -> list[ContentItem]:
+        return list(self.s.scalars(select(ContentItem).where(ContentItem.study_id == study_id).order_by(ContentItem.id)))
+
+
+class SqlMediaRepo(_Repo):
+    def add(self, m: ContentMedia) -> ContentMedia:
+        self.s.add(m)
+        self.s.flush()
+        return m
+
+    def get(self, media_id: int) -> ContentMedia | None:
+        return self.s.get(ContentMedia, media_id)
+
+    def by_key(self, content_id: int, key: str) -> ContentMedia | None:
+        return self.s.scalar(select(ContentMedia).where(ContentMedia.content_id == content_id, ContentMedia.key == key))
+
+    def list_for_content(self, content_id: int) -> list[ContentMedia]:
+        return list(self.s.scalars(select(ContentMedia).where(ContentMedia.content_id == content_id).order_by(ContentMedia.key)))
+
+
+class SqlAssignmentRepo(_Repo):
+    def add(self, a: Assignment) -> Assignment:
+        self.s.add(a)
+        self.s.flush()
+        return a
+
+    def get(self, assignment_id: int) -> Assignment | None:
+        return self.s.get(Assignment, assignment_id)
+
+    def list_for_participant(self, participant_id: int) -> list[Assignment]:
+        return list(self.s.scalars(select(Assignment).where(Assignment.participant_id == participant_id).order_by(Assignment.order_index, Assignment.id)))
+
+
+class SqlTrialRepo(_Repo):
+    def add_many(self, items: list[Trial]) -> int:
+        self.s.add_all(items)
+        self.s.flush()
+        return len(items)
+
+    def for_session(self, session_id: int) -> list[Trial]:
+        return list(self.s.scalars(select(Trial).where(Trial.session_id == session_id).order_by(Trial.id)))
+
+
+class SqlStageResultRepo(_Repo):
+    def add(self, r: StageResult) -> StageResult:
+        self.s.add(r)
+        self.s.flush()
+        return r
+
+    def for_session(self, session_id: int) -> list[StageResult]:
+        return list(self.s.scalars(select(StageResult).where(StageResult.session_id == session_id).order_by(StageResult.id)))
+
+
+class SqlAnswerRepo(_Repo):
+    def add(self, a: Answer) -> Answer:
+        self.s.add(a)
+        self.s.flush()
+        return a
+
+    def for_session(self, session_id: int) -> list[Answer]:
+        return list(self.s.scalars(select(Answer).where(Answer.session_id == session_id).order_by(Answer.id)))

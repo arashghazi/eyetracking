@@ -83,6 +83,8 @@ class Session:
     ended_at: datetime | None = None
     end_reason: str | None = None
     notes: list[str] = field(default_factory=list)
+    assignment_id: int | None = None
+    protocol_id: int | None = None
     id: int | None = None
 
     def ensure_open(self) -> None:

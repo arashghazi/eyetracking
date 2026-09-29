@@ -54,6 +54,7 @@ class SessionCreateIn(BaseModel):
     screen: dict[str, Any]
     camera: dict[str, Any] = Field(default_factory=dict)
     gaze_model: dict[str, Any] = Field(default_factory=dict)
+    assignment_id: int | None = None
 
 
 class CameraCheckIn(BaseModel):
@@ -155,7 +156,7 @@ def my_sessions(principal: Principal = Depends(get_principal), uow=Depends(get_u
 
 @router.post("/me/sessions", status_code=201)
 def create_session(body: SessionCreateIn, principal: Principal = Depends(get_principal), uow=Depends(get_uow)):
-    s = uc.create_session(uow, principal, body.device, body.screen, body.camera, body.gaze_model)
+    s = uc.create_session(uow, principal, body.device, body.screen, body.camera, body.gaze_model, body.assignment_id)
     return uc.summarize(uow, s)
 
 

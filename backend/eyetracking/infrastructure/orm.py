@@ -159,6 +159,7 @@ def start_mappers() -> None:
     mapper_registry.map_imperatively(DemographicsForm, demographics_forms)
     mapper_registry.map_imperatively(DemographicsAnswer, demographics_answers)
     start_measurement_mappers()
+    start_practice_mappers()
     _mapped = True
 
 
@@ -207,6 +208,8 @@ sessions = Table(
     Column("ended_at", DateTime, nullable=True),
     Column("end_reason", String(20), nullable=True),
     Column("notes", JSON, nullable=False, default=list),
+    Column("assignment_id", Integer, nullable=True),
+    Column("protocol_id", Integer, nullable=True),
 )
 
 calibrations = Table(
@@ -285,3 +288,133 @@ def start_measurement_mappers() -> None:
     mapper_registry.map_imperatively(StimulusLayout, stimulus_layouts)
     mapper_registry.map_imperatively(GazeSample, gaze_samples)
     mapper_registry.map_imperatively(SessionEvent, session_events)
+
+
+# ---------- step 3 tables ----------
+
+from eyetracking.domain.practice import (  # noqa: E402
+    Answer,
+    Assignment,
+    AssignmentStatus,
+    ContentItem,
+    ContentMedia,
+    ContentStatus,
+    Protocol,
+    ProtocolStatus,
+    StageResult,
+    Trial,
+)
+
+protocols = Table(
+    "protocols",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("name", String(200), nullable=False),
+    Column("definition", JSON, nullable=False),
+    Column("status", Enum(ProtocolStatus, native_enum=False, length=20), nullable=False),
+    Column("version", Integer, nullable=False, default=0),
+    Column("created_at", DateTime, nullable=False),
+    Column("published_at", DateTime, nullable=True),
+)
+
+content_items = Table(
+    "content_items",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("title", String(200), nullable=False),
+    Column("definition", JSON, nullable=False),
+    Column("topic_tags", JSON, nullable=False, default=list),
+    Column("face_id", String(100), nullable=False, default=""),
+    Column("voice_id", String(100), nullable=False, default=""),
+    Column("status", Enum(ContentStatus, native_enum=False, length=20), nullable=False),
+    Column("created_at", DateTime, nullable=False),
+    Column("updated_at", DateTime, nullable=False),
+)
+
+content_media = Table(
+    "content_media",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("content_id", Integer, ForeignKey("content_items.id"), nullable=False),
+    Column("key", String(120), nullable=False),
+    Column("path", String(500), nullable=False),
+    Column("content_type", String(60), nullable=False),
+    Column("size", Integer, nullable=False),
+    Column("created_at", DateTime, nullable=False),
+    UniqueConstraint("content_id", "key", name="uq_media_key"),
+)
+
+assignments = Table(
+    "assignments",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("participant_id", Integer, ForeignKey("participants.id"), nullable=False),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("protocol_id", Integer, ForeignKey("protocols.id"), nullable=False),
+    Column("order_index", Integer, nullable=False, default=0),
+    Column("status", Enum(AssignmentStatus, native_enum=False, length=20), nullable=False),
+    Column("topic", String(200), nullable=True),
+    Column("topic_free_text", Text, nullable=True),
+    Column("content_id", Integer, ForeignKey("content_items.id"), nullable=True),
+    Column("created_at", DateTime, nullable=False),
+)
+
+trials = Table(
+    "trials",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
+    Column("stage_index", Integer, nullable=False),
+    Column("trial_index", Integer, nullable=False),
+    Column("t_ms", Integer, nullable=False),
+    Column("number_shown", String(20), nullable=False),
+    Column("zone", String(20), nullable=False),
+    Column("position", JSON, nullable=False, default=dict),
+    Column("face_level", Integer, nullable=False),
+    Column("response", String(20), nullable=True),
+    Column("correct", Boolean, nullable=False),
+    Column("response_ms", Integer, nullable=True),
+)
+
+stage_results = Table(
+    "stage_results",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
+    Column("stage_index", Integer, nullable=False),
+    Column("decision", String(12), nullable=False),
+    Column("reason", String(40), nullable=False),
+    Column("correct_ratio", Float, nullable=True),
+    Column("invalid_share", Float, nullable=False),
+    Column("comfort_value", Integer, nullable=True),
+    Column("trials", Integer, nullable=False),
+    Column("next_stage_index", Integer, nullable=True),
+    Column("last_trial_id", Integer, nullable=False, default=0),
+    Column("created_at", DateTime, nullable=False),
+)
+
+answers = Table(
+    "answers",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
+    Column("segment_id", String(60), nullable=False),
+    Column("question_id", String(60), nullable=False),
+    Column("kind", String(16), nullable=False),
+    Column("option", String(200), nullable=False),
+    Column("correct", Boolean, nullable=True),
+    Column("t_ms", Integer, nullable=False),
+    Column("next_segment_id", String(60), nullable=True),
+)
+
+
+def start_practice_mappers() -> None:
+    mapper_registry.map_imperatively(Protocol, protocols)
+    mapper_registry.map_imperatively(ContentItem, content_items)
+    mapper_registry.map_imperatively(ContentMedia, content_media)
+    mapper_registry.map_imperatively(Assignment, assignments)
+    mapper_registry.map_imperatively(Trial, trials)
+    mapper_registry.map_imperatively(StageResult, stage_results)
+    mapper_registry.map_imperatively(Answer, answers)
