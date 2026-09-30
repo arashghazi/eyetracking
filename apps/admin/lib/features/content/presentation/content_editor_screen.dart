@@ -2,6 +2,8 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
+import '../../ai/application/video_jobs_controller.dart';
+import '../../ai/presentation/ai_widgets.dart';
 import '../application/content_editor_controller.dart';
 
 /// Editor of one content item. Pass [contentId] to load an existing item, or
@@ -12,11 +14,15 @@ class ContentEditorScreen extends StatefulWidget {
     required this.studyId,
     required this.canEdit,
     this.contentId,
+    this.onOpenAiTab,
   });
 
   final int studyId;
   final bool canEdit;
   final String? contentId;
+
+  /// Switches the study screen to the AI tab after this editor closes.
+  final VoidCallback? onOpenAiTab;
 
   @override
   State<ContentEditorScreen> createState() => _ContentEditorScreenState();
@@ -24,6 +30,7 @@ class ContentEditorScreen extends StatefulWidget {
 
 class _ContentEditorScreenState extends State<ContentEditorScreen> {
   ContentEditorController? _controller;
+  late final VideoJobsController _video;
   bool _loading = false;
   String? _loadError;
 
@@ -41,6 +48,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _video = VideoJobsController(AppScope.read(context).ai, widget.studyId);
     if (widget.contentId == null) {
       _controller = _make(null);
     } else {
@@ -67,6 +75,7 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
   @override
   void dispose() {
     _controller?.dispose();
+    _video.dispose();
     super.dispose();
   }
 
@@ -88,16 +97,26 @@ class _ContentEditorScreenState extends State<ContentEditorScreen> {
             )
           : ListenableBuilder(
               listenable: c,
-              builder: (context, _) => _Editor(controller: c),
+              builder: (context, _) => _Editor(
+                controller: c,
+                video: _video,
+                onOpenAiTab: widget.onOpenAiTab,
+              ),
             ),
     );
   }
 }
 
 class _Editor extends StatelessWidget {
-  const _Editor({required this.controller});
+  const _Editor({
+    required this.controller,
+    required this.video,
+    this.onOpenAiTab,
+  });
 
   final ContentEditorController controller;
+  final VideoJobsController video;
+  final VoidCallback? onOpenAiTab;
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +164,26 @@ class _Editor extends StatelessWidget {
                 style: theme.textTheme.labelMedium,
               ),
             ),
+            StateChip(
+              key: const Key('text-reviewed-status'),
+              label: c.textReviewed ? 'Text reviewed: yes' : 'Text reviewed: no',
+              foreground:
+                  c.textReviewed ? AppColors.success : AppColors.textMuted,
+              background:
+                  c.textReviewed ? AppColors.successTint : const Color(0xFFEAEDED),
+              icon: c.textReviewed
+                  ? Icons.check_circle_outline
+                  : Icons.rate_review_outlined,
+            ),
+            if (c.canEdit)
+              OutlinedButton.icon(
+                key: const Key('mark-text-reviewed'),
+                onPressed: c.busy || c.isApproved || c.textReviewed
+                    ? null
+                    : c.markTextReviewed,
+                icon: const Icon(Icons.task_alt, size: 18),
+                label: const Text('Mark text reviewed'),
+              ),
           ],
         ),
         if (c.isApproved) ...[
@@ -294,6 +333,12 @@ class _Editor extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         _MediaSection(controller: c),
+        const SizedBox(height: 12),
+        _VideoSection(
+          controller: c,
+          video: video,
+          onOpenAiTab: onOpenAiTab,
+        ),
         const SizedBox(height: 16),
         if (!ro)
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -715,6 +760,169 @@ class _MediaRow extends StatelessWidget {
   }
 }
 
+/// "Generate videos": one AI video job per segment that has no media yet.
+class _VideoSection extends StatelessWidget {
+  const _VideoSection({
+    required this.controller,
+    required this.video,
+    this.onOpenAiTab,
+  });
+
+  final ContentEditorController controller;
+  final VideoJobsController video;
+  final VoidCallback? onOpenAiTab;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([controller, video]),
+      builder: (context, _) {
+        final c = controller;
+        final lacking = c.segmentsWithoutMedia;
+        final candidates = [for (final s in lacking) s.id.trim()];
+        final blocked = c.videoBlockedReason ??
+            (video.selectedOf(candidates).isEmpty
+                ? 'Select at least one segment.'
+                : null);
+        return _Section(
+          key: const Key('video-section'),
+          title: 'Generate videos',
+          children: [
+            Text(
+              'Creates one video job for each segment that has no media yet. '
+              'The generated video is stored like an upload. Needs reviewed '
+              'text.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            if (video.error != null) ...[
+              MessageBanner(
+                key: const Key('video-error'),
+                message: video.error!,
+                onDismiss: video.dismissError,
+              ),
+              const SizedBox(height: 12),
+            ],
+            Wrap(spacing: 12, runSpacing: 12, children: [
+              SizedBox(
+                width: 240,
+                child: TextFormField(
+                  key: const Key('video-face-id'),
+                  initialValue: video.faceId,
+                  decoration: const InputDecoration(
+                    labelText: 'Face id',
+                    helperText: 'Empty: the content\'s own',
+                  ),
+                  onChanged: (v) => video.faceId = v,
+                ),
+              ),
+              SizedBox(
+                width: 240,
+                child: TextFormField(
+                  key: const Key('video-voice-id'),
+                  initialValue: video.voiceId,
+                  decoration: const InputDecoration(
+                    labelText: 'Voice id',
+                    helperText: 'Empty: the content\'s own',
+                  ),
+                  onChanged: (v) => video.voiceId = v,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Text('Segments without media',
+                style: theme.textTheme.labelLarge),
+            if (lacking.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('None.', key: Key('no-lacking-segments')),
+              ),
+            for (final s in lacking)
+              CheckboxListTile(
+                key: Key('video-segment-${s.id.trim()}'),
+                value: video.isSelected(s.id.trim()),
+                onChanged: c.canEdit
+                    ? (v) => video.select(s.id.trim(), v ?? false)
+                    : null,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text('Segment ${s.id.trim()}'),
+                subtitle: Text(s.mediaKey.trim()),
+              ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.icon(
+                  key: const Key('generate-videos'),
+                  onPressed: blocked != null || video.busy
+                      ? null
+                      : () => video.generate(c.id!, candidates),
+                  icon: const Icon(Icons.movie_creation_outlined, size: 18),
+                  label: Text(video.busy ? 'Working...' : 'Generate videos'),
+                ),
+                if (blocked != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Text(
+                      blocked,
+                      key: const Key('video-blocked-reason'),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: AppColors.warning),
+                    ),
+                  ),
+              ],
+            ),
+            if (video.created.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Column(
+                key: const Key('video-jobs-created'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${video.created.length} video '
+                    '${video.created.length == 1 ? 'job' : 'jobs'} created',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  for (final j in video.created)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text('Job ${j.id}, segment ${j.segmentId ?? '-'}',
+                              key: Key('video-job-${j.id}')),
+                          JobStatusChip(status: j.status),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    key: const Key('open-ai-tab'),
+                    onPressed: () {
+                      Navigator.of(context).maybePop();
+                      onOpenAiTab?.call();
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Open the AI tab'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _SegmentDrop extends StatelessWidget {
   const _SegmentDrop({
     required this.keyName,
@@ -760,7 +968,7 @@ class _SegmentDrop extends StatelessWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
+  const _Section({super.key, required this.title, required this.children});
 
   final String title;
   final List<Widget> children;

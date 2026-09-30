@@ -6,6 +6,7 @@ import 'app_dependencies.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/assignments/data/api_assignments_repository.dart';
 import 'features/access_log/data/api_access_log_repository.dart';
+import 'features/ai/data/api_ai_repository.dart';
 import 'features/analysis/data/api_analysis_repository.dart';
 import 'features/auth/data/api_auth_repository.dart';
 import 'features/content/data/api_content_repository.dart';
@@ -56,6 +57,7 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     accessLog: ApiAccessLogRepository(api),
     videoStage: (context, config) => VideoStage(config: config),
     saveFile: saveFile,
+    ai: ApiAiRepository(api),
   );
 }
 

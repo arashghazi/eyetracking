@@ -98,6 +98,13 @@ class ApiContentRepository implements ContentRepository {
       );
 
   @override
+  Future<ContentDetail> markTextReviewed(int studyId, String contentId) async =>
+      _detail(
+        studyId,
+        await _api.postObject('${_one(studyId, contentId)}/text-reviewed'),
+      );
+
+  @override
   Future<MediaInfo> uploadMedia(
     int studyId,
     String contentId,

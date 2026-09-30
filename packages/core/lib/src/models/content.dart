@@ -231,6 +231,7 @@ class ContentSummary {
     this.status = ContentStatus.draft,
     this.mediaKeys = const [],
     this.missingMedia = const [],
+    this.textReviewed = false,
   });
 
   final String id;
@@ -244,6 +245,10 @@ class ContentSummary {
   /// Media keys used by the segments that have no upload yet.
   final List<String> missingMedia;
 
+  /// A researcher has read the generated (or edited) text. Editing the
+  /// definition resets it; video generation needs it.
+  final bool textReviewed;
+
   bool get isDraft => status == ContentStatus.draft;
   bool get isApproved => status == ContentStatus.approved;
 
@@ -256,6 +261,7 @@ class ContentSummary {
         status: json['status']?.toString() ?? ContentStatus.draft,
         mediaKeys: _strings(json['media_keys']),
         missingMedia: _strings(json['missing_media']),
+        textReviewed: json['text_reviewed'] == true,
       );
 }
 

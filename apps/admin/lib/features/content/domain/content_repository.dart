@@ -31,6 +31,10 @@ abstract class ContentRepository {
   /// Approves a draft. Answers 422 while media is missing.
   Future<ContentDetail> approve(int studyId, String contentId);
 
+  /// Marks the generated (or edited) text as reviewed. Video generation
+  /// needs it; editing the definition resets it.
+  Future<ContentDetail> markTextReviewed(int studyId, String contentId);
+
   /// Uploads the file for one media key; [onProgress] gets bytes handed to
   /// the network layer and the total.
   Future<MediaInfo> uploadMedia(

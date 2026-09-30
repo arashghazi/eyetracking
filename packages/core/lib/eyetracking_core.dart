@@ -14,6 +14,7 @@ export 'src/media/video_stage.dart';
 export 'src/media/video_stage_config.dart';
 export 'src/media/video_stage_controller.dart';
 export 'src/models/admin_session.dart';
+export 'src/models/ai.dart';
 export 'src/models/analysis.dart';
 export 'src/models/assignment.dart';
 export 'src/models/content.dart';

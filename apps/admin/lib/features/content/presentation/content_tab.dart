@@ -8,10 +8,19 @@ import 'content_editor_screen.dart';
 /// The Content tab: interest-path conversations authored for one study, with
 /// their status and any media that is still missing.
 class ContentTab extends StatefulWidget {
-  const ContentTab({super.key, required this.studyId, required this.canEdit});
+  const ContentTab({
+    super.key,
+    required this.studyId,
+    required this.canEdit,
+    this.onOpenAiTab,
+  });
 
   final int studyId;
   final bool canEdit;
+
+  /// Switches the study screen to the AI tab (the editor's "Open the AI tab"
+  /// link uses it).
+  final VoidCallback? onOpenAiTab;
 
   @override
   State<ContentTab> createState() => _ContentTabState();
@@ -46,6 +55,7 @@ class _ContentTabState extends State<ContentTab>
           studyId: widget.studyId,
           canEdit: widget.canEdit,
           contentId: contentId,
+          onOpenAiTab: widget.onOpenAiTab,
         ),
       ),
     );
@@ -132,6 +142,7 @@ class _ContentTabState extends State<ContentTab>
                     columns: const [
                       DataColumn(label: Text('Title')),
                       DataColumn(label: Text('Status')),
+                      DataColumn(label: Text('Text reviewed')),
                       DataColumn(label: Text('Topic tags')),
                       DataColumn(label: Text('Face')),
                       DataColumn(label: Text('Voice')),
@@ -143,6 +154,10 @@ class _ContentTabState extends State<ContentTab>
                         DataRow(cells: [
                           DataCell(Text(item.title)),
                           DataCell(_Status(approved: item.isApproved)),
+                          DataCell(Text(
+                            item.textReviewed ? 'Yes' : 'No',
+                            key: Key('text-reviewed-${item.id}'),
+                          )),
                           DataCell(Text(item.topicTags.isEmpty
                               ? '-'
                               : item.topicTags.join(', '))),

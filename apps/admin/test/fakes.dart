@@ -5,6 +5,7 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:eyetracking_core/testing.dart';
 import 'package:research_admin/app_dependencies.dart';
 import 'package:research_admin/features/access_log/domain/access_log_repository.dart';
+import 'package:research_admin/features/ai/domain/ai_repository.dart';
 import 'package:research_admin/features/analysis/domain/analysis_filters.dart';
 import 'package:research_admin/features/analysis/domain/analysis_repository.dart';
 import 'package:research_admin/features/assignments/domain/assignments_repository.dart';
@@ -782,6 +783,10 @@ class FakeContentRepository implements ContentRepository {
 
   /// When set, approval answers with this (a 422 naming the missing media).
   ApiException? approveFailure;
+
+  /// When set, marking the text as reviewed answers with this.
+  ApiException? reviewFailure;
+  final List<String> reviewed = [];
   final List<Map<String, dynamic>> saved = [];
   final List<String> approved = [];
   final List<({String id, String key, String filename, String type, int size})>
@@ -904,6 +909,31 @@ class FakeContentRepository implements ContentRepository {
         voiceId: old.summary.voiceId,
         status: ContentStatus.approved,
         mediaKeys: old.summary.mediaKeys,
+        textReviewed: old.summary.textReviewed,
+      ),
+      definition: old.definition,
+    );
+    items = [for (final c in items) c.summary.id == contentId ? next : c];
+    return next;
+  }
+
+  @override
+  Future<ContentDetail> markTextReviewed(int studyId, String contentId) async {
+    if (reviewFailure != null) throw reviewFailure!;
+    reviewed.add(contentId);
+    final old = _find(contentId);
+    final s = old.summary;
+    final next = ContentDetail(
+      summary: ContentSummary(
+        id: s.id,
+        title: s.title,
+        topicTags: s.topicTags,
+        faceId: s.faceId,
+        voiceId: s.voiceId,
+        status: s.status,
+        mediaKeys: s.mediaKeys,
+        missingMedia: s.missingMedia,
+        textReviewed: true,
       ),
       definition: old.definition,
     );
@@ -983,12 +1013,20 @@ class FakeAssignmentsRepository implements AssignmentsRepository {
 
   List<Assignment> items;
   ApiException? failure;
+
+  /// When set, listing the assignments answers with this (unknown code).
+  ApiException? listFailure;
+  final List<String> listedCodes = [];
   final List<({String code, String protocolId, int? order})> created = [];
   final List<({String id, String contentId})> attached = [];
   final List<String> cancelled = [];
 
   @override
-  Future<List<Assignment>> list(int studyId, String code) async => List.of(items);
+  Future<List<Assignment>> list(int studyId, String code) async {
+    listedCodes.add(code);
+    if (listFailure != null) throw listFailure!;
+    return List.of(items);
+  }
 
   @override
   Future<Assignment> create(
@@ -1067,9 +1105,11 @@ class TestBed {
     FakeAnalysisRepository? analysis,
     FakeExportsRepository? exports,
     FakeAccessLogRepository? accessLog,
+    FakeAiRepository? ai,
     FakeStudiesRepository? studies,
     bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
+        ai = ai ?? FakeAiRepository(),
         replay = replay ?? FakeReplayRepository(),
         analysis = analysis ?? FakeAnalysisRepository(),
         exports = exports ?? FakeExportsRepository(),
@@ -1109,6 +1149,10 @@ class TestBed {
   final FakeAnalysisRepository analysis;
   final FakeExportsRepository exports;
   final FakeAccessLogRepository accessLog;
+  final FakeAiRepository ai;
+
+  /// The AI tab's auto-refresh timers, fired by hand.
+  final List<ManualTimer> timers = [];
 
   /// What the downloads handed to the browser.
   final RecordingFileSaver saver;
@@ -1136,6 +1180,12 @@ class TestBed {
         accessLog: accessLog,
         videoStage: FakeVideoStage.builder(player: videoPlayer),
         saveFile: saver.call,
+        ai: ai,
+        schedule: (d, f) {
+          final t = ManualTimer(d, f);
+          timers.add(t);
+          return t;
+        },
       );
 }
 
@@ -1451,5 +1501,238 @@ class FakeAccessLogRepository implements AccessLogRepository {
     if (failure != null) throw failure!;
     limits.add(limit);
     return entries;
+  }
+}
+
+
+// ------------------------------------------------------------------ step 5
+
+/// A timer that fires only when a test says so.
+class ManualTimer implements Timer {
+  ManualTimer(this.duration, this._callback);
+
+  final Duration duration;
+  final void Function() _callback;
+  bool cancelled = false;
+  bool fired = false;
+
+  void fire() {
+    if (cancelled || fired) return;
+    fired = true;
+    _callback();
+  }
+
+  @override
+  void cancel() => cancelled = true;
+
+  @override
+  bool get isActive => !cancelled && !fired;
+
+  @override
+  int get tick => fired ? 1 : 0;
+}
+
+AiJob aiJob(
+  String id, {
+  String kind = AiJobKind.text,
+  String status = AiJobStatus.succeeded,
+  String provider = 'fake',
+  String? contentId = '7',
+  String? segmentId,
+  int attempts = 1,
+  double estimate = 0.1,
+  double? actual,
+  String? error,
+}) =>
+    AiJob(
+      id: id,
+      kind: kind,
+      status: status,
+      provider: provider,
+      contentId: contentId,
+      segmentId: segmentId,
+      attempts: attempts,
+      costEstimateUnits: estimate,
+      costActualUnits: actual,
+      error: error,
+      createdAt: '2026-09-29T10:00:00',
+    );
+
+const configuredStatus = AiStatus(
+  textProvider: AiProviderStatus(
+    name: 'anthropic',
+    model: 'claude-sonnet-x',
+    configured: true,
+  ),
+  videoProvider: AiProviderStatus(name: 'heygen', configured: false),
+  budget: AiBudget(costCapUnits: 10, spentUnits: 2.5, remainingUnits: 7.5),
+  worker: AiWorkerStatus(enabled: true, intervalS: 30),
+);
+
+const syntheticStatus = AiStatus(
+  textProvider: AiProviderStatus(
+    name: 'fake',
+    model: 'fake-text',
+    configured: true,
+    synthetic: true,
+  ),
+  videoProvider: AiProviderStatus(name: 'fake', configured: true, synthetic: true),
+  budget: AiBudget(),
+  worker: AiWorkerStatus(enabled: false, intervalS: 30),
+);
+
+class FakeAiRepository implements AiRepository {
+  FakeAiRepository({AiStatus? status, List<AiJob>? jobs})
+      : statusValue = status ?? syntheticStatus,
+        jobList = jobs ?? [];
+
+  AiStatus statusValue;
+  List<AiJob> jobList;
+  ApiException? statusFailure;
+  ApiException? budgetFailure;
+  ApiException? textJobFailure;
+  ApiException? videoJobFailure;
+  ApiException? actionFailure;
+
+  final List<TextJobRequest> textRequests = [];
+  final List<VideoJobRequest> videoRequests = [];
+  final List<double> budgetChanges = [];
+  final List<String> cancelled = [];
+  final List<String> retried = [];
+  final List<int> runs = [];
+  int statusReads = 0;
+  int jobReads = 0;
+  AiRunResult runResult = const AiRunResult(processed: 2, succeeded: 1, failed: 1);
+  int _next = 100;
+
+  @override
+  Future<AiStatus> status(int studyId) async {
+    statusReads++;
+    if (statusFailure != null) throw statusFailure!;
+    return statusValue;
+  }
+
+  @override
+  Future<AiBudget> setBudget(int studyId, double costCapUnits) async {
+    if (budgetFailure != null) throw budgetFailure!;
+    budgetChanges.add(costCapUnits);
+    final spent = statusValue.budget.spentUnits;
+    final budget = AiBudget(
+      costCapUnits: costCapUnits,
+      spentUnits: spent,
+      remainingUnits: costCapUnits - spent,
+    );
+    statusValue = statusValue.copyWith(budget: budget);
+    return budget;
+  }
+
+  @override
+  Future<AiJob> createTextJob(int studyId, TextJobRequest request) async {
+    if (textJobFailure != null) throw textJobFailure!;
+    textRequests.add(request);
+    final n = _next++;
+    final job = AiJob(
+      id: '$n',
+      kind: AiJobKind.text,
+      status: AiJobStatus.queued,
+      provider: statusValue.textProvider.name,
+      contentId: '${n + 1000}',
+      assignmentId: request.assignmentId,
+      costEstimateUnits: 0.05,
+      createdAt: '2026-09-29T11:00:00',
+    );
+    jobList = [job, ...jobList];
+    return job;
+  }
+
+  @override
+  Future<List<AiJob>> createVideoJobs(
+    int studyId,
+    VideoJobRequest request,
+  ) async {
+    if (videoJobFailure != null) throw videoJobFailure!;
+    videoRequests.add(request);
+    final created = [
+      for (final seg in request.segmentIds)
+        AiJob(
+          id: '${_next++}',
+          kind: AiJobKind.video,
+          status: AiJobStatus.queued,
+          provider: statusValue.videoProvider.name,
+          contentId: request.contentId,
+          segmentId: seg,
+          costEstimateUnits: 0.4,
+          createdAt: '2026-09-29T11:05:00',
+        ),
+    ];
+    jobList = [...created.reversed, ...jobList];
+    return created;
+  }
+
+  @override
+  Future<List<AiJob>> jobs(
+    int studyId, {
+    String? status,
+    String? contentId,
+  }) async {
+    jobReads++;
+    return [
+      for (final j in jobList)
+        if ((status == null || j.status == status) &&
+            (contentId == null || j.contentId == contentId))
+          j,
+    ];
+  }
+
+  AiJob _replace(String id, AiJob Function(AiJob) change) {
+    late AiJob next;
+    jobList = [
+      for (final j in jobList)
+        if (j.id == id) next = change(j) else j,
+    ];
+    return next;
+  }
+
+  AiJob _copy(AiJob j, {String? status, String? error, int? attempts}) => AiJob(
+        id: j.id,
+        kind: j.kind,
+        status: status ?? j.status,
+        provider: j.provider,
+        contentId: j.contentId,
+        assignmentId: j.assignmentId,
+        segmentId: j.segmentId,
+        attempts: attempts ?? j.attempts,
+        maxAttempts: j.maxAttempts,
+        costEstimateUnits: j.costEstimateUnits,
+        costActualUnits: j.costActualUnits,
+        error: error ?? (status == null ? j.error : null),
+        createdAt: j.createdAt,
+      );
+
+  @override
+  Future<AiJob> cancel(int studyId, String jobId) async {
+    if (actionFailure != null) throw actionFailure!;
+    cancelled.add(jobId);
+    return _replace(jobId, (j) => _copy(j, status: AiJobStatus.cancelled));
+  }
+
+  @override
+  Future<AiJob> retry(int studyId, String jobId) async {
+    if (actionFailure != null) throw actionFailure!;
+    retried.add(jobId);
+    return _replace(jobId, (j) => _copy(j, status: AiJobStatus.queued));
+  }
+
+  @override
+  Future<AiRunResult> run(int studyId, {int maxJobs = 5}) async {
+    if (actionFailure != null) throw actionFailure!;
+    runs.add(maxJobs);
+    jobList = [
+      for (final j in jobList)
+        j.status == AiJobStatus.queued
+            ? _copy(j, status: AiJobStatus.succeeded)
+            : j,
+    ];
+    return runResult;
   }
 }

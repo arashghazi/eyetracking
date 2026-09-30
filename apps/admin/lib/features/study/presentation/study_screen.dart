@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../access_log/presentation/access_log_tab.dart';
+import '../../ai/presentation/ai_tab.dart';
 import '../../analysis/presentation/analysis_tab.dart';
 import '../../demographics_form/presentation/demographics_form_tab.dart';
 import '../../information_sheet/presentation/information_sheet_tab.dart';
@@ -28,8 +29,25 @@ class StudyScreen extends StatelessWidget {
   final bool isAdmin;
   final bool canEditSettings;
 
+  /// Position of the AI tab (after Content); everything before it is always
+  /// shown.
+  static const aiTabIndex = 5;
+
   @override
   Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: _tabCount,
+      child: Builder(builder: _buildTabs),
+    );
+  }
+
+  /// Ten tabs everybody sees, plus the Access log (researchers and
+  /// administrators) and the Members tab (administrators).
+  int get _tabCount =>
+      10 + (isAdmin || canEditSettings ? 1 : 0) + (isAdmin ? 1 : 0);
+
+  Widget _buildTabs(BuildContext context) {
+    final tabController = DefaultTabController.of(context);
     final tabs = <(String, Widget)>[
       (
         'Participants',
@@ -41,7 +59,23 @@ class StudyScreen extends StatelessWidget {
         'Protocols',
         ProtocolsTab(studyId: study.id, canEdit: canEditSettings),
       ),
-      ('Content', ContentTab(studyId: study.id, canEdit: canEditSettings)),
+      (
+        'Content',
+        ContentTab(
+          studyId: study.id,
+          canEdit: canEditSettings,
+          onOpenAiTab: () => tabController.animateTo(aiTabIndex),
+        ),
+      ),
+      (
+        'AI',
+        AiTab(
+          studyId: study.id,
+          isAdmin: isAdmin,
+          canEdit: canEditSettings,
+          tabIndex: aiTabIndex,
+        ),
+      ),
       ('Invitations', InvitationsTab(studyId: study.id)),
       ('Information sheet', InformationSheetTab(studyId: study.id)),
       ('Demographics form', DemographicsFormTab(studyId: study.id)),
@@ -54,19 +88,17 @@ class StudyScreen extends StatelessWidget {
         ('Access log', AccessLogTab(studyId: study.id)),
       if (isAdmin) ('Members', MembersTab(studyId: study.id)),
     ];
-    return DefaultTabController(
-      length: tabs.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(study.name),
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [for (final t in tabs) Tab(text: t.$1)],
-          ),
+    assert(tabs[aiTabIndex].$1 == 'AI' && tabs.length == _tabCount);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(study.name),
+        bottom: TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: [for (final t in tabs) Tab(text: t.$1)],
         ),
-        body: TabBarView(children: [for (final t in tabs) t.$2]),
       ),
+      body: TabBarView(children: [for (final t in tabs) t.$2]),
     );
   }
 }

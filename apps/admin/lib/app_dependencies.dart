@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:eyetracking_core/eyetracking_core.dart';
 
 import 'features/access_log/domain/access_log_repository.dart';
+import 'features/ai/domain/ai_repository.dart';
 import 'features/analysis/domain/analysis_repository.dart';
 import 'features/assignments/domain/assignments_repository.dart';
 import 'features/auth/application/auth_controller.dart';
@@ -40,6 +43,8 @@ class AppDependencies {
     required this.accessLog,
     required this.videoStage,
     required this.saveFile,
+    required this.ai,
+    this.schedule,
   });
 
   final AuthController auth;
@@ -70,4 +75,11 @@ class AppDependencies {
 
   /// Hands a downloaded file to the browser (a recording fake in tests).
   final FileSaver saveFile;
+
+  // Step 5: AI content generation.
+  final AiRepository ai;
+
+  /// Creates the timer behind the AI tab's auto-refresh; tests pass a fake so
+  /// they can fire it by hand. Null uses a real [Timer].
+  final Timer Function(Duration, void Function())? schedule;
 }

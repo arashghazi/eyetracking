@@ -157,6 +157,7 @@ class ContentEditorController extends SafeChangeNotifier {
   int _uid = 0;
   String? _id;
   String _status = ContentStatus.draft;
+  bool _textReviewed = false;
 
   String title = '';
   final List<String> tags = [];
@@ -181,6 +182,9 @@ class ContentEditorController extends SafeChangeNotifier {
   String get status => _status;
   bool get isNew => _id == null;
   bool get isApproved => _status == ContentStatus.approved;
+
+  /// A researcher has read the generated (or edited) text.
+  bool get textReviewed => _textReviewed;
   bool get readOnly => !canEdit || isApproved;
   bool get busy => _busy;
   bool get dirty => _dirty;
@@ -209,6 +213,37 @@ class ContentEditorController extends SafeChangeNotifier {
 
   bool isMissing(String key) => _missing.contains(key) || isNew;
 
+  /// Segments with a media key that has no upload yet: the ones a video job
+  /// can fill.
+  List<SegmentDraft> get segmentsWithoutMedia => [
+        for (final s in _segments)
+          if (s.id.trim().isNotEmpty &&
+              s.mediaKey.trim().isNotEmpty &&
+              isMissing(s.mediaKey.trim()))
+            s,
+      ];
+
+  /// Why videos cannot be generated right now, or null when they can.
+  String? get videoBlockedReason {
+    if (!canEdit) {
+      return 'Researchers of this study can generate videos.';
+    }
+    if (isApproved) return 'Approved content already has all of its media.';
+    if (isNew) return 'Save the draft first.';
+    if (!_textReviewed) {
+      return 'Mark the text reviewed first. Videos are generated from '
+          'reviewed text only.';
+    }
+    if (_dirty) {
+      return 'Save your changes first: videos are generated from the saved '
+          'text, and an edit resets the review.';
+    }
+    if (segmentsWithoutMedia.isEmpty) {
+      return 'Every segment already has media.';
+    }
+    return null;
+  }
+
   /// Segment ids typed so far.
   List<String> get segmentIds => [
         for (final s in _segments)
@@ -218,6 +253,7 @@ class ContentEditorController extends SafeChangeNotifier {
   void _fill(ContentDetail d) {
     _id = d.summary.id;
     _status = d.summary.status;
+    _textReviewed = d.summary.textReviewed;
     title = d.summary.title;
     tags
       ..clear()
@@ -401,6 +437,30 @@ class ContentEditorController extends SafeChangeNotifier {
             );
       _fill(saved);
       _notice = 'Draft saved.';
+      return true;
+    } catch (e) {
+      _error = userMessage(e);
+      return false;
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Marks the text as reviewed. A draft with unsaved edits is saved first,
+  /// so the text the researcher read is the text that is marked.
+  Future<bool> markTextReviewed() async {
+    if (readOnly || _busy) return false;
+    if (_id == null || _dirty) {
+      if (!await save()) return false;
+    }
+    _busy = true;
+    _error = null;
+    _notice = null;
+    notifyListeners();
+    try {
+      _fill(await _repository.markTextReviewed(studyId, _id!));
+      _notice = 'Text marked as reviewed. Videos can be generated now.';
       return true;
     } catch (e) {
       _error = userMessage(e);

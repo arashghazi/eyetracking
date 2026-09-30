@@ -41,3 +41,14 @@ String formatClockMs(int ms) {
   final millis = (ms % 1000).toString().padLeft(3, '0');
   return '${two(minutes)}:${two(seconds)}.$millis';
 }
+
+/// Formats a cost in USD-estimate units, at least two and at most four
+/// decimals (`0.50`, `0.0125`).
+String formatUnits(num? units, {String fallback = '-'}) {
+  if (units == null) return fallback;
+  var text = units.toStringAsFixed(4);
+  while (text.endsWith('0') && text.length - text.indexOf('.') > 3) {
+    text = text.substring(0, text.length - 1);
+  }
+  return text;
+}
