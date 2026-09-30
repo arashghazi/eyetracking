@@ -28,9 +28,11 @@ class SettingsOut(BaseModel):
     allow_continue_without_validation: bool
     quality_max_uncertain_share: float
     quality_max_missing_share: float
+    version: int = 1
 
 
 class SettingsIn(BaseModel):
+    rationale: str | None = None
     validation_min_correct: float | None = None
     validation_max_uncertain: float | None = None
     min_region_to_error_ratio: float | None = None
@@ -141,6 +143,7 @@ def _settings_out(s: MeasurementSettings) -> SettingsOut:
         allow_continue_without_validation=s.allow_continue_without_validation,
         quality_max_uncertain_share=s.quality_max_uncertain_share,
         quality_max_missing_share=s.quality_max_missing_share,
+        version=s.version,
     )
 
 
@@ -236,6 +239,11 @@ def study_settings(study_id: int, principal: Principal = Depends(get_principal),
 @router.put("/studies/{study_id}/measurement-settings", response_model=SettingsOut)
 def update_study_settings(study_id: int, body: SettingsIn, principal: Principal = Depends(get_principal), uow=Depends(get_uow)):
     return _settings_out(uc.update_study_settings(uow, principal, study_id, **body.model_dump(exclude_unset=True)))
+
+
+@router.get("/studies/{study_id}/measurement-settings/history")
+def settings_history(study_id: int, principal: Principal = Depends(get_principal), uow=Depends(get_uow)):
+    return uc.settings_history(uow, principal, study_id)
 
 
 @router.get("/studies/{study_id}/sessions")

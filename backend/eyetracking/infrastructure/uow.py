@@ -23,6 +23,33 @@ def make_engine(database_url: str) -> Engine:
 def create_schema(engine: Engine) -> None:
     start_mappers()
     metadata.create_all(engine)
+    if engine.dialect.name == "sqlite":
+        _add_missing_sqlite_columns(engine)
+
+
+def _add_missing_sqlite_columns(engine: Engine) -> None:
+    """Local development databases only: add columns that later build steps introduced.
+
+    create_all never alters an existing table. For SQLite dev files this adds a missing column when
+    it is nullable or has a server default; anything else needs a real migration.
+    """
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table in metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            present = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in present:
+                    continue
+                if not col.nullable and col.server_default is None:
+                    raise RuntimeError(f"column {table.name}.{col.name} is missing and needs a migration")
+                ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col.type.compile(engine.dialect)}'
+                if col.server_default is not None:
+                    ddl += f" NOT NULL DEFAULT {col.server_default.arg}"
+                conn.execute(text(ddl))
 
 
 class SqlUnitOfWork:
@@ -55,6 +82,11 @@ class SqlUnitOfWork:
         self.access_log = r.SqlAccessLogRepo(self.session)
         self.jobs = r.SqlJobRepo(self.session)
         self.ai_budgets = r.SqlAiBudgetRepo(self.session)
+        self.settings_versions = r.SqlSettingsVersionRepo(self.session)
+        self.observations = r.SqlObservationRepo(self.session)
+        self.debrief_forms = r.SqlDebriefFormRepo(self.session)
+        self.debrief_answers = r.SqlDebriefAnswerRepo(self.session)
+        self.references = r.SqlReferenceRepo(self.session)
 
     def commit(self) -> None:
         self.session.commit()
@@ -71,16 +103,21 @@ class SqlUnitOfWork:
         """Delete everything recorded under a research code. Returns row counts per table."""
         from eyetracking.domain.measurement import Calibration, GazeSample, Session, SessionEvent, StimulusLayout, Validation
         from eyetracking.domain.models import Consent, DemographicsAnswer, Profile
+        from eyetracking.domain.pilot import DebriefAnswer, Observation, ReferenceRecording, ReferenceSample
         from eyetracking.domain.practice import Answer, Assignment, StageResult, Trial
 
         session_ids = list(self.session.scalars(select(Session.id).where(Session.participant_id == participant_id)))
         counts: dict[str, int] = {"sessions": len(session_ids)}
         if session_ids:
+            rec_ids = list(self.session.scalars(select(ReferenceRecording.id).where(ReferenceRecording.session_id.in_(session_ids))))
+            counts["reference_samples"] = int(self.session.execute(delete(ReferenceSample).where(ReferenceSample.recording_id.in_(rec_ids))).rowcount or 0) if rec_ids else 0
+            for name, model in (("reference_recordings", ReferenceRecording), ("observations", Observation), ("debrief_answers", DebriefAnswer)):
+                counts[name] = int(self.session.execute(delete(model).where(model.session_id.in_(session_ids))).rowcount or 0)
             for name, model in (("samples", GazeSample), ("events", SessionEvent), ("trials", Trial), ("stage_results", StageResult), ("answers", Answer), ("validations", Validation), ("calibrations", Calibration), ("layouts", StimulusLayout)):
                 counts[name] = int(self.session.execute(delete(model).where(model.session_id.in_(session_ids))).rowcount or 0)
             self.session.execute(delete(Session).where(Session.id.in_(session_ids)))
         else:
-            counts.update({k: 0 for k in ("samples", "events", "trials", "stage_results", "answers", "validations", "calibrations", "layouts")})
+            counts.update({k: 0 for k in ("samples", "events", "trials", "stage_results", "answers", "validations", "calibrations", "layouts", "reference_samples", "reference_recordings", "observations", "debrief_answers")})
         counts["consents"] = int(self.session.execute(delete(Consent).where(Consent.participant_id == participant_id)).rowcount or 0)
         counts["demographics"] = int(self.session.execute(delete(DemographicsAnswer).where(DemographicsAnswer.participant_id == participant_id)).rowcount or 0)
         counts["profile"] = int(self.session.execute(delete(Profile).where(Profile.participant_id == participant_id)).rowcount or 0)

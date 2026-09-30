@@ -166,6 +166,7 @@ DATA_DICTIONARY: list[dict] = [
     {"name": "quality_reasons", "type": "string", "unit": "", "meaning": "Semicolon-separated reasons behind the grade."},
     {"name": "calibration_residual_px", "type": "number", "unit": "px", "meaning": "Median calibration error on the participant's screen."},
     {"name": "validation_passed", "type": "boolean", "unit": "", "meaning": "Regional validation (eye / mouth / outside) passed."},
+    {"name": "settings_version", "type": "integer", "unit": "", "meaning": "Measurement-settings version the validation was judged with (empty for validations recorded before step 6)."},
     {"name": "size_ratio", "type": "number", "unit": "", "meaning": "Eye-region height divided by calibration error."},
     {"name": "total_ms", "type": "integer", "unit": "ms", "meaning": "Observed segment time (baseline + practice + post)."},
     {"name": "classifiable_share", "type": "number", "unit": "0-1", "meaning": "Share of total time with a classifiable gaze region."},

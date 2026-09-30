@@ -426,3 +426,85 @@ class SqlAiBudgetRepo(_Repo):
         self.s.add(b)
         self.s.flush()
         return b
+
+
+# ---------- step 6 repositories ----------
+
+from eyetracking.domain.pilot import DebriefAnswer, DebriefForm, Observation, ReferenceRecording, ReferenceSample, SettingsVersion  # noqa: E402
+
+
+class SqlSettingsVersionRepo(_Repo):
+    def add(self, v: SettingsVersion) -> SettingsVersion:
+        self.s.add(v)
+        self.s.flush()
+        return v
+
+    def list_for_study(self, study_id: int) -> list[SettingsVersion]:
+        return list(self.s.scalars(select(SettingsVersion).where(SettingsVersion.study_id == study_id).order_by(SettingsVersion.version)))
+
+
+class SqlObservationRepo(_Repo):
+    def add(self, o: Observation) -> Observation:
+        self.s.add(o)
+        self.s.flush()
+        return o
+
+    def for_session(self, session_id: int) -> list[Observation]:
+        return list(self.s.scalars(select(Observation).where(Observation.session_id == session_id).order_by(Observation.id)))
+
+    def for_study(self, study_id: int) -> list[Observation]:
+        return list(self.s.scalars(select(Observation).where(Observation.study_id == study_id).order_by(Observation.id)))
+
+
+class SqlDebriefFormRepo(_Repo):
+    def add(self, f: DebriefForm) -> DebriefForm:
+        self.s.add(f)
+        self.s.flush()
+        return f
+
+    def current(self, study_id: int) -> DebriefForm | None:
+        return self.s.scalar(select(DebriefForm).where(DebriefForm.study_id == study_id).order_by(DebriefForm.version.desc()).limit(1))
+
+    def get_version(self, study_id: int, version: int) -> DebriefForm | None:
+        return self.s.scalar(select(DebriefForm).where(DebriefForm.study_id == study_id, DebriefForm.version == version))
+
+
+class SqlDebriefAnswerRepo(_Repo):
+    def add(self, a: DebriefAnswer) -> DebriefAnswer:
+        self.s.add(a)
+        self.s.flush()
+        return a
+
+    def for_session(self, session_id: int) -> DebriefAnswer | None:
+        return self.s.scalar(select(DebriefAnswer).where(DebriefAnswer.session_id == session_id))
+
+    def for_study(self, study_id: int) -> list[DebriefAnswer]:
+        return list(self.s.scalars(select(DebriefAnswer).where(DebriefAnswer.study_id == study_id).order_by(DebriefAnswer.id)))
+
+
+class SqlReferenceRepo(_Repo):
+    def add(self, r: ReferenceRecording, rows: list[tuple[int, float | None, float | None, bool]]) -> ReferenceRecording:
+        from .orm import reference_samples
+
+        self.s.add(r)
+        self.s.flush()
+        for i in range(0, len(rows), 5000):
+            chunk = rows[i : i + 5000]
+            self.s.execute(reference_samples.insert(), [{"recording_id": r.id, "t_ms": t, "x": x, "y": y, "valid": v} for t, x, y, v in chunk])
+        self.s.flush()
+        return r
+
+    def get(self, recording_id: int) -> ReferenceRecording | None:
+        return self.s.get(ReferenceRecording, recording_id)
+
+    def for_session(self, session_id: int) -> list[ReferenceRecording]:
+        return list(self.s.scalars(select(ReferenceRecording).where(ReferenceRecording.session_id == session_id).order_by(ReferenceRecording.id)))
+
+    def for_study(self, study_id: int) -> list[ReferenceRecording]:
+        return list(self.s.scalars(select(ReferenceRecording).where(ReferenceRecording.study_id == study_id).order_by(ReferenceRecording.id)))
+
+    def samples(self, recording_id: int) -> list[tuple[int, float | None, float | None, bool]]:
+        rows = self.s.execute(
+            select(ReferenceSample.t_ms, ReferenceSample.x, ReferenceSample.y, ReferenceSample.valid).where(ReferenceSample.recording_id == recording_id).order_by(ReferenceSample.t_ms)
+        )
+        return [(int(t), x, y, bool(v)) for t, x, y, v in rows]

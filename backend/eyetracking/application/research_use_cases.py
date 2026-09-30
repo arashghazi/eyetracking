@@ -196,6 +196,7 @@ def analysis_rows(uow: ResearchUnitOfWork, principal: Principal, study_id: int, 
                 "quality_reasons": ";".join(summary["quality"]["reasons"]),
                 "calibration_residual_px": (summary.get("calibration") or {}).get("residual_px_median"),
                 "validation_passed": (summary.get("validation") or {}).get("passed"),
+                "settings_version": (summary.get("validation") or {}).get("settings_version"),
                 "size_ratio": (summary.get("validation") or {}).get("size_ratio"),
                 "total_ms": cov["total_ms"],
                 "classifiable_share": _share(cov["classifiable_ms"], cov["total_ms"]),
@@ -321,6 +322,12 @@ def access_log(uow: ResearchUnitOfWork, principal: Principal, study_id: int, lim
 # ---------- participant raw data and deletion ----------
 
 
+def _debrief_of(uow, session_id: int) -> dict | None:
+    repo = getattr(uow, "debrief_answers", None)
+    a = repo.for_session(session_id) if repo is not None else None
+    return {"form_version": a.form_version, "answers": a.answers, "skipped": a.skipped} if a else None
+
+
 def my_full_data(uow: ResearchUnitOfWork, principal: Principal) -> dict:
     from .use_cases import my_data_export
 
@@ -336,6 +343,7 @@ def my_full_data(uow: ResearchUnitOfWork, principal: Principal) -> dict:
                 "events": [{"t_ms": e.t_ms, "type": e.type, "payload": e.payload} for e in uow.events.for_session(sid)],
                 "trials": [{"stage_index": t.stage_index, "trial_index": t.trial_index, "t_ms": t.t_ms, "number_shown": t.number_shown, "zone": t.zone, "response": t.response, "correct": t.correct} for t in uow.trials.for_session(sid)],
                 "answers": [{"segment_id": a.segment_id, "question_id": a.question_id, "kind": a.kind, "option": a.option, "correct": a.correct, "t_ms": a.t_ms} for a in uow.answers.for_session(sid)],
+                "debrief": _debrief_of(uow, sid),
             }
         )
     data["sessions"] = sessions

@@ -105,6 +105,7 @@ def main() -> int:
     res = login(a.researcher_email, a.researcher_password)
     ok(c.put(f"/studies/{study}/information-sheet", json=SHEET, headers=res), "information sheet")
     ok(c.put(f"/studies/{study}/demographics-form", json={"fields": [{"key": "age", "label": "Age", "type": "number", "required": True}]}, headers=res), "demographics form")
+    ok(c.put(f"/studies/{study}/debrief-form", json={"enabled": True}, headers=res), "debrief questions")
 
     inv = ok(c.post(f"/studies/{study}/invitations", json={}, headers=res), "invitation")
     joined = ok(c.post(f"/invitations/{inv['token']}/accept", json={"email": a.participant_email, "password": a.participant_password}), "accept invitation")

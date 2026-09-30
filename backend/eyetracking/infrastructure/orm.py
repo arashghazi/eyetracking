@@ -163,6 +163,7 @@ def start_mappers() -> None:
     start_practice_mappers()
     start_research_mappers()
     start_ai_mappers()
+    start_pilot_mappers()
     _mapped = True
 
 
@@ -194,6 +195,7 @@ measurement_settings = Table(
     Column("allow_continue_without_validation", Boolean, nullable=False, default=True),
     Column("quality_max_uncertain_share", Float, nullable=False, default=0.2),
     Column("quality_max_missing_share", Float, nullable=False, default=0.2),
+    Column("version", Integer, nullable=False, default=1, server_default="1"),
 )
 
 sessions = Table(
@@ -245,6 +247,7 @@ validations = Table(
     Column("reasons", JSON, nullable=False, default=list),
     Column("targets", JSON, nullable=False, default=list),
     Column("created_at", DateTime, nullable=False),
+    Column("settings_version", Integer, nullable=True),
 )
 
 stimulus_layouts = Table(
@@ -492,3 +495,96 @@ generation_jobs = Table(
 def start_ai_mappers() -> None:
     mapper_registry.map_imperatively(AiBudget, ai_budgets)
     mapper_registry.map_imperatively(GenerationJob, generation_jobs)
+
+
+# ---------- step 6 tables ----------
+
+from eyetracking.domain.pilot import DebriefAnswer, DebriefForm, Observation, ReferenceRecording, ReferenceSample, SettingsVersion  # noqa: E402
+
+settings_versions = Table(
+    "settings_versions",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("values", JSON, nullable=False),
+    Column("rationale", Text, nullable=False, default=""),
+    Column("changed_by", Integer, nullable=True),
+    Column("created_at", DateTime, nullable=False),
+    UniqueConstraint("study_id", "version", name="uq_settings_versions_study_version"),
+)
+
+observations = Table(
+    "observations",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
+    Column("author_id", Integer, nullable=False),
+    Column("category", String(20), nullable=False),
+    Column("severity", String(10), nullable=False),
+    Column("text", Text, nullable=False),
+    Column("t_ms", Integer, nullable=True),
+    Column("created_at", DateTime, nullable=False),
+    Index("ix_observations_session", "session_id"),
+)
+
+debrief_forms = Table(
+    "debrief_forms",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("questions", JSON, nullable=False),
+    Column("enabled", Boolean, nullable=False, default=False),
+    Column("created_at", DateTime, nullable=False),
+    UniqueConstraint("study_id", "version", name="uq_debrief_forms_study_version"),
+)
+
+debrief_answers = Table(
+    "debrief_answers",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False, unique=True),
+    Column("participant_id", Integer, nullable=False),
+    Column("form_version", Integer, nullable=False),
+    Column("answers", JSON, nullable=False),
+    Column("skipped", Boolean, nullable=False, default=False),
+    Column("created_at", DateTime, nullable=False),
+)
+
+reference_recordings = Table(
+    "reference_recordings",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
+    Column("source", String(120), nullable=False),
+    Column("uploaded_by", Integer, nullable=False),
+    Column("settings", JSON, nullable=False),
+    Column("sample_count", Integer, nullable=False, default=0),
+    Column("valid_count", Integer, nullable=False, default=0),
+    Column("created_at", DateTime, nullable=False),
+)
+
+reference_samples = Table(
+    "reference_samples",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("recording_id", Integer, ForeignKey("reference_recordings.id"), nullable=False),
+    Column("t_ms", Integer, nullable=False),
+    Column("x", Float, nullable=True),
+    Column("y", Float, nullable=True),
+    Column("valid", Boolean, nullable=False),
+    Index("ix_reference_samples_recording_t", "recording_id", "t_ms"),
+)
+
+
+def start_pilot_mappers() -> None:
+    mapper_registry.map_imperatively(SettingsVersion, settings_versions)
+    mapper_registry.map_imperatively(Observation, observations)
+    mapper_registry.map_imperatively(DebriefForm, debrief_forms)
+    mapper_registry.map_imperatively(DebriefAnswer, debrief_answers)
+    mapper_registry.map_imperatively(ReferenceRecording, reference_recordings)
+    mapper_registry.map_imperatively(ReferenceSample, reference_samples)

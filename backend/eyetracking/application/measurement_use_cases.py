@@ -50,18 +50,52 @@ def get_study_settings(uow: MeasurementUnitOfWork, principal: Principal, study_i
     return settings_for_study(uow, study_id)
 
 
-def update_study_settings(uow: MeasurementUnitOfWork, principal: Principal, study_id: int, **changes) -> MeasurementSettings:
+def update_study_settings(uow: MeasurementUnitOfWork, principal: Principal, study_id: int, rationale: str | None = None, **changes) -> MeasurementSettings:
+    """Thresholds are versioned: every real change gets a new version with who and why.
+
+    New validations record the version they were judged with. Nothing already recorded is
+    re-judged silently; the threshold review shows what a change would do before it is saved.
+    """
+    from eyetracking.domain.pilot import MAX_RATIONALE_CHARS, SETTINGS_FIELDS, SettingsVersion, settings_values
+
     require_study_access(principal, study_id, StudyRole.researcher)
     if uow.studies.get(study_id) is None:
         raise NotFound("study not found")
     s = settings_for_study(uow, study_id)
+    before = settings_values(s)
     for k, v in changes.items():
-        if v is not None:
+        if v is not None and k in SETTINGS_FIELDS:
             setattr(s, k, v)
-    s.validate()
+    try:
+        s.validate()
+    except Invalid:
+        for k, v in before.items():
+            setattr(s, k, v)
+        raise
+    after = settings_values(s)
+    if after == before:
+        return s
+    note = (rationale or "").strip()
+    if len(note) > MAX_RATIONALE_CHARS:
+        raise Invalid(f"rationale is limited to {MAX_RATIONALE_CHARS} characters")
+    if not uow.settings_versions.list_for_study(study_id):
+        uow.settings_versions.add(SettingsVersion(study_id=study_id, version=s.version or 1, values=before, rationale="Values in use before the first recorded change", changed_by=None))
+    s.version = (s.version or 1) + 1
     s = uow.measurement_settings.save(s)
+    uow.settings_versions.add(SettingsVersion(study_id=study_id, version=s.version, values=after, rationale=note, changed_by=principal.user_id))
     uow.commit()
     return s
+
+
+def settings_history(uow: MeasurementUnitOfWork, principal: Principal, study_id: int) -> list[dict]:
+    from eyetracking.domain.pilot import settings_values
+
+    require_study_access(principal, study_id)
+    rows = uow.settings_versions.list_for_study(study_id)
+    if not rows:
+        s = settings_for_study(uow, study_id)
+        return [{"version": s.version, "values": settings_values(s), "rationale": "Defaults; no change recorded yet" if s.id is None else "Saved before the settings history existed", "changed_by": None, "created_at": None}]
+    return [{"version": r.version, "values": r.values, "rationale": r.rationale, "changed_by": r.changed_by, "created_at": r.created_at} for r in reversed(rows)]
 
 
 # ---------- sessions (participant side) ----------
@@ -298,6 +332,7 @@ def summarize(uow: MeasurementUnitOfWork, s: Session) -> dict:
                 "uncertain_ratio": val.uncertain_ratio,
                 "size_ratio": val.size_ratio,
                 "reasons": list(val.reasons),
+                "settings_version": val.settings_version,
             }
             if val
             else None

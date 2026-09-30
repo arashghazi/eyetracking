@@ -58,6 +58,7 @@ class MeasurementSettings:
     allow_continue_without_validation: bool = True
     quality_max_uncertain_share: float = 0.2
     quality_max_missing_share: float = 0.2
+    version: int = 1
     id: int | None = None
 
     def validate(self) -> None:
@@ -120,6 +121,7 @@ class Validation:
     reasons: list[str] = field(default_factory=list)
     targets: list[dict] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
+    settings_version: int | None = None
     id: int | None = None
 
 
@@ -350,6 +352,7 @@ def evaluate_validation(
     if size_ratio < settings.min_region_to_error_ratio:
         reasons.append(f"eye_region_smaller_than_{settings.min_region_to_error_ratio}x_error")
     return Validation(
+        settings_version=settings.version,
         session_id=calibration.session_id,
         calibration_id=calibration.id or 0,
         layout=layout,
