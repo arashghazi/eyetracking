@@ -16,12 +16,23 @@ class ApiMeasurementSettingsRepository implements MeasurementSettingsRepository 
   @override
   Future<MeasurementSettings> save(
     int studyId,
-    MeasurementSettings settings,
-  ) async =>
-      MeasurementSettings.fromJson(
-        await _api.putObject(
-          '/studies/$studyId/measurement-settings',
-          settings.toJson(),
-        ),
-      );
+    MeasurementSettings settings, {
+    String? rationale,
+  }) =>
+      saveChanges(studyId, settings.toJson(), rationale: rationale);
+
+  @override
+  Future<MeasurementSettings> saveChanges(
+    int studyId,
+    Map<String, dynamic> changes, {
+    String? rationale,
+  }) async {
+    final why = rationale?.trim();
+    return MeasurementSettings.fromJson(
+      await _api.putObject('/studies/$studyId/measurement-settings', {
+        ...changes,
+        if (why != null && why.isNotEmpty) 'rationale': why,
+      }),
+    );
+  }
 }

@@ -7,6 +7,9 @@ class MeasurementSettings {
     this.gazeConfThreshold = 0.5,
     this.calibrationPoints = 9,
     this.allowContinueWithoutValidation = true,
+    this.qualityMaxUncertainShare = 0.2,
+    this.qualityMaxMissingShare = 0.2,
+    this.version = 1,
   });
 
   static const defaults = MeasurementSettings();
@@ -17,6 +20,15 @@ class MeasurementSettings {
   final double gazeConfThreshold;
   final int calibrationPoints;
   final bool allowContinueWithoutValidation;
+
+  /// Step 4 quality thresholds: the largest uncertain and missing share a
+  /// session may have and still grade `ok`.
+  final double qualityMaxUncertainShare;
+  final double qualityMaxMissingShare;
+
+  /// Step 6: the settings version (1 = defaults). Every real change creates
+  /// the next version; it is not part of the values and not sent on save.
+  final int version;
 
   static const minCalibrationPoints = 5;
   static const maxCalibrationPoints = 16;
@@ -41,9 +53,18 @@ class MeasurementSettings {
       allowContinueWithoutValidation:
           json['allow_continue_without_validation'] as bool? ??
               d.allowContinueWithoutValidation,
+      qualityMaxUncertainShare:
+          (json['quality_max_uncertain_share'] as num?)?.toDouble() ??
+              d.qualityMaxUncertainShare,
+      qualityMaxMissingShare:
+          (json['quality_max_missing_share'] as num?)?.toDouble() ??
+              d.qualityMaxMissingShare,
+      version: (json['version'] as num?)?.toInt() ?? d.version,
     );
   }
 
+  /// The six values the settings form edits. The quality thresholds and the
+  /// version are left out: they change through the threshold review.
   Map<String, dynamic> toJson() => {
         'validation_min_correct': validationMinCorrect,
         'validation_max_uncertain': validationMaxUncertain,
@@ -84,7 +105,9 @@ class MeasurementSettings {
       other.minRegionToErrorRatio == minRegionToErrorRatio &&
       other.gazeConfThreshold == gazeConfThreshold &&
       other.calibrationPoints == calibrationPoints &&
-      other.allowContinueWithoutValidation == allowContinueWithoutValidation;
+      other.allowContinueWithoutValidation == allowContinueWithoutValidation &&
+      other.qualityMaxUncertainShare == qualityMaxUncertainShare &&
+      other.qualityMaxMissingShare == qualityMaxMissingShare;
 
   @override
   int get hashCode => Object.hash(
@@ -94,5 +117,7 @@ class MeasurementSettings {
         gazeConfThreshold,
         calibrationPoints,
         allowContinueWithoutValidation,
+        qualityMaxUncertainShare,
+        qualityMaxMissingShare,
       );
 }

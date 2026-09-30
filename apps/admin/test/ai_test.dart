@@ -124,6 +124,77 @@ void main() {
       expect(key('edit-cap'), findsNothing);
     });
 
+    testWidgets('an administrator switches free text on and off', (tester) async {
+      useWindow(tester, 1440, 2600);
+      final bed = TestBed(ai: FakeAiRepository(status: configuredStatus));
+      await openAi(tester, bed, role: 'admin');
+
+      expect(tester.widget<Switch>(key('send-free-text')).value, isFalse);
+      expect(
+        find.text("A participant's free-text topic is sent to the text provider "
+            'only when this is on.'),
+        findsOneWidget,
+      );
+      await tapKey(tester, 'send-free-text');
+      expect(bed.ai.freeTextChanges, [true]);
+      expect(tester.widget<Switch>(key('send-free-text')).value, isTrue);
+      expect(find.text('Free text is now sent to the text provider.'), findsOneWidget);
+
+      await tapKey(tester, 'send-free-text');
+      expect(bed.ai.freeTextChanges, [true, false]);
+      expect(tester.widget<Switch>(key('send-free-text')).value, isFalse);
+      expect(find.text('Free text is no longer sent to the text provider.'),
+          findsOneWidget);
+      expect(bed.ai.budgetChanges, isEmpty, reason: 'the cap is not touched');
+    });
+
+    testWidgets('the switch shows the stored setting', (tester) async {
+      useWindow(tester, 1440, 2600);
+      final bed = TestBed(
+        ai: FakeAiRepository(
+          status: const AiStatus(
+            textProvider: AiProviderStatus(name: 'fake', configured: true),
+            sendFreeText: true,
+          ),
+        ),
+      );
+      await openAi(tester, bed, role: 'admin');
+      expect(tester.widget<Switch>(key('send-free-text')).value, isTrue);
+    });
+
+    for (final role in ['researcher', 'analyst']) {
+      testWidgets('a $role sees the free-text setting but cannot change it',
+          (tester) async {
+        useWindow(tester, 1440, 2600);
+        final bed = TestBed(
+          ai: FakeAiRepository(
+            status: const AiStatus(
+              textProvider: AiProviderStatus(name: 'fake', configured: true),
+              sendFreeText: true,
+            ),
+          ),
+        );
+        await openAi(tester, bed, role: role);
+        expect(key('send-free-text'), findsNothing);
+        expect(textOf(tester, 'send-free-text-state'), 'On');
+        expect(find.textContaining('free-text topic is sent'), findsOneWidget);
+      });
+    }
+
+    testWidgets('a refusal is shown as written and the switch stays', (tester) async {
+      useWindow(tester, 1440, 2600);
+      final bed = TestBed(ai: FakeAiRepository(status: configuredStatus));
+      bed.ai.budgetFailure = const ApiException(
+        'administrator role required',
+        statusCode: 403,
+      );
+      await openAi(tester, bed, role: 'admin');
+      await tapKey(tester, 'send-free-text');
+      expect(find.text('administrator role required'), findsOneWidget);
+      expect(tester.widget<Switch>(key('send-free-text')).value, isFalse);
+      expect(bed.ai.freeTextChanges, isEmpty);
+    });
+
     testWidgets('an administrator sets the cap and sees the new figures',
         (tester) async {
       useWindow(tester, 1440, 2600);

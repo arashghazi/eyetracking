@@ -149,6 +149,29 @@ class _AiStatusCardState extends State<AiStatusCard> {
                     ),
                   ],
                   ..._capEditor(c),
+                  const Divider(height: 20),
+                  _LabelRow(
+                    label: 'Free text',
+                    children: [
+                      if (widget.isAdmin)
+                        Switch(
+                          key: const Key('send-free-text'),
+                          value: s.sendFreeText,
+                          onChanged: c.busy ? null : c.setSendFreeText,
+                        )
+                      else
+                        Text(
+                          s.sendFreeText ? 'On' : 'Off',
+                          key: const Key('send-free-text-state'),
+                        ),
+                      Text(s.sendFreeText ? 'Send free text' : 'Do not send'),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const MutedText(
+                    "A participant's free-text topic is sent to the text "
+                    'provider only when this is on.',
+                  ),
                 ],
                 if (c.budgetError != null) ...[
                   const SizedBox(height: 8),

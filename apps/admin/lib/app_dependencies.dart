@@ -16,6 +16,7 @@ import 'features/invitations/domain/invitations_repository.dart';
 import 'features/measurement_settings/domain/measurement_settings_repository.dart';
 import 'features/members/domain/members_repository.dart';
 import 'features/participants/domain/participants_repository.dart';
+import 'features/pilot/domain/pilot_repository.dart';
 import 'features/protocols/domain/protocols_repository.dart';
 import 'features/replay/domain/replay_repository.dart';
 import 'features/sessions/domain/sessions_repository.dart';
@@ -44,6 +45,7 @@ class AppDependencies {
     required this.videoStage,
     required this.saveFile,
     required this.ai,
+    required this.pilot,
     this.schedule,
   });
 
@@ -79,7 +81,11 @@ class AppDependencies {
   // Step 5: AI content generation.
   final AiRepository ai;
 
-  /// Creates the timer behind the AI tab's auto-refresh; tests pass a fake so
-  /// they can fire it by hand. Null uses a real [Timer].
+  // Step 6: supervised pilot.
+  final PilotRepository pilot;
+
+  /// Creates the timers behind the AI tab's auto-refresh and the live
+  /// monitor's polling; tests pass a fake so they can fire them by hand. Null
+  /// uses a real [Timer].
   final Timer Function(Duration, void Function())? schedule;
 }

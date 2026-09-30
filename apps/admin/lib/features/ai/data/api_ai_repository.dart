@@ -29,6 +29,15 @@ class ApiAiRepository implements AiRepository {
       );
 
   @override
+  Future<bool> setSendFreeText(int studyId, bool value) async {
+    final json = await _api.putObject(
+      '${_base(studyId)}/budget',
+      {'send_free_text': value},
+    );
+    return json['send_free_text'] == true;
+  }
+
+  @override
   Future<AiJob> createTextJob(int studyId, TextJobRequest request) async =>
       AiJob.fromJson(
         await _api.postObject('${_base(studyId)}/text-jobs', request.toJson()),

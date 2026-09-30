@@ -10,6 +10,7 @@ import '../../measurement_settings/presentation/measurement_settings_tab.dart';
 import '../../content/presentation/content_tab.dart';
 import '../../members/presentation/members_tab.dart';
 import '../../participants/presentation/participants_tab.dart';
+import '../../pilot/presentation/pilot_tab.dart';
 import '../../protocols/presentation/protocols_tab.dart';
 import '../../sessions/presentation/sessions_tab.dart';
 import '../../studies/domain/study.dart';
@@ -29,9 +30,15 @@ class StudyScreen extends StatelessWidget {
   final bool isAdmin;
   final bool canEditSettings;
 
+  /// Position of the Pilot tab (right after Sessions).
+  static const pilotTabIndex = 2;
+
   /// Position of the AI tab (after Content); everything before it is always
   /// shown.
-  static const aiTabIndex = 5;
+  static const aiTabIndex = 6;
+
+  /// Position of the Measurement settings tab.
+  static const measurementSettingsTabIndex = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +48,10 @@ class StudyScreen extends StatelessWidget {
     );
   }
 
-  /// Ten tabs everybody sees, plus the Access log (researchers and
+  /// Eleven tabs everybody sees, plus the Access log (researchers and
   /// administrators) and the Members tab (administrators).
   int get _tabCount =>
-      10 + (isAdmin || canEditSettings ? 1 : 0) + (isAdmin ? 1 : 0);
+      11 + (isAdmin || canEditSettings ? 1 : 0) + (isAdmin ? 1 : 0);
 
   Widget _buildTabs(BuildContext context) {
     final tabController = DefaultTabController.of(context);
@@ -53,7 +60,15 @@ class StudyScreen extends StatelessWidget {
         'Participants',
         ParticipantsTab(studyId: study.id, canEdit: canEditSettings),
       ),
-      ('Sessions', SessionsTab(studyId: study.id)),
+      ('Sessions', SessionsTab(studyId: study.id, canEdit: canEditSettings)),
+      (
+        'Pilot',
+        PilotTab(
+          studyId: study.id,
+          canEdit: canEditSettings,
+          tabIndex: pilotTabIndex,
+        ),
+      ),
       ('Analysis', AnalysisTab(studyId: study.id)),
       (
         'Protocols',
@@ -81,14 +96,21 @@ class StudyScreen extends StatelessWidget {
       ('Demographics form', DemographicsFormTab(studyId: study.id)),
       (
         'Measurement settings',
-        MeasurementSettingsTab(studyId: study.id, canEdit: canEditSettings),
+        MeasurementSettingsTab(
+          studyId: study.id,
+          canEdit: canEditSettings,
+          tabIndex: measurementSettingsTabIndex,
+        ),
       ),
       // Researchers and administrators read the access log; analysts do not.
       if (isAdmin || canEditSettings)
         ('Access log', AccessLogTab(studyId: study.id)),
       if (isAdmin) ('Members', MembersTab(studyId: study.id)),
     ];
-    assert(tabs[aiTabIndex].$1 == 'AI' && tabs.length == _tabCount);
+    assert(tabs[pilotTabIndex].$1 == 'Pilot' &&
+        tabs[aiTabIndex].$1 == 'AI' &&
+        tabs[measurementSettingsTabIndex].$1 == 'Measurement settings' &&
+        tabs.length == _tabCount);
     return Scaffold(
       appBar: AppBar(
         title: Text(study.name),

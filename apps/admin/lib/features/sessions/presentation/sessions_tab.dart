@@ -7,9 +7,12 @@ import 'session_detail_screen.dart';
 import 'session_widgets.dart';
 
 class SessionsTab extends StatefulWidget {
-  const SessionsTab({super.key, required this.studyId});
+  const SessionsTab({super.key, required this.studyId, this.canEdit = false});
 
   final int studyId;
+
+  /// Researchers add observations on the session detail; analysts read them.
+  final bool canEdit;
 
   @override
   State<SessionsTab> createState() => _SessionsTabState();
@@ -44,6 +47,7 @@ class _SessionsTabState extends State<SessionsTab>
           studyId: widget.studyId,
           sessionId: item.id,
           participantCode: item.participantCode,
+          canEdit: widget.canEdit,
         ),
       ),
     );

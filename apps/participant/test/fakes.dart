@@ -15,6 +15,7 @@ import 'package:participant_app/features/home/domain/home_repository.dart';
 import 'package:participant_app/features/home/domain/participant_overview.dart';
 import 'package:participant_app/features/profile/domain/profile_repository.dart';
 
+import 'debrief_kit.dart';
 import 'session_kit.dart';
 
 class FakeAuthRepository implements AuthRepository {
@@ -318,9 +319,11 @@ class TestBed {
     VideoStageBuilder? videoStage,
     FakeDataExportRepository? dataExport,
     FakeEraseRepository? erase,
+    FakeDebriefRepository? debrief,
     bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
         erase = erase ?? FakeEraseRepository(),
+        debrief = debrief ?? FakeDebriefRepository(),
         saver = RecordingFileSaver(succeeds: canSaveFiles),
         assignments = assignments ?? FakeAssignmentsRepository(),
         videoStage = videoStage ?? FakeVideoStage.builder(),
@@ -343,6 +346,7 @@ class TestBed {
   final FakeDemographicsRepository demographics;
   final FakeDataExportRepository dataExport;
   final FakeEraseRepository erase;
+  final FakeDebriefRepository debrief;
 
   /// What the downloads handed to the browser.
   final RecordingFileSaver saver;
@@ -366,6 +370,7 @@ class TestBed {
         assignments: assignments,
         videoStage: videoStage,
         erase: erase,
+        debrief: debrief,
         saveFile: saver.call,
       );
 }

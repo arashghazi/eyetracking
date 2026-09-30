@@ -4,6 +4,7 @@ import 'features/assignments/domain/assignments_repository.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/consent/domain/consent_repository.dart';
 import 'features/data_export/domain/data_export_repository.dart';
+import 'features/debrief/domain/debrief_repository.dart';
 import 'features/demographics/domain/demographics_repository.dart';
 import 'features/erase/domain/erase_repository.dart';
 import 'features/home/domain/home_repository.dart';
@@ -26,6 +27,7 @@ class AppDependencies {
     required this.assignments,
     required this.videoStage,
     required this.erase,
+    required this.debrief,
     required this.saveFile,
     this.initialInvitationToken = '',
   });
@@ -48,6 +50,9 @@ class AppDependencies {
 
   /// Step 4: withdraw and delete the participant's data.
   final EraseRepository erase;
+
+  /// Step 6: the optional questions after a session.
+  final DebriefRepository debrief;
 
   /// Hands a downloaded file to the browser (a recording fake in tests).
   final FileSaver saveFile;

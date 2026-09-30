@@ -60,11 +60,21 @@ class MeasurementSettingsController extends SafeChangeNotifier {
   Map<String, String> _errors = const {};
   bool _loading = false;
   bool _saving = false;
+  bool _dirty = false;
   String? _error;
   String? _notice;
 
+  /// The longest rationale the server takes.
+  static const maxRationaleChars = 1000;
+
   MeasurementSettings? get saved => _saved;
   bool get loaded => _saved != null;
+
+  /// The settings version on the server (1 = defaults).
+  int get version => _saved?.version ?? 1;
+
+  /// The form holds edits that are not saved.
+  bool get dirty => _dirty;
   bool get loading => _loading;
   bool get saving => _saving;
   String? get error => _error;
@@ -91,8 +101,25 @@ class MeasurementSettingsController extends SafeChangeNotifier {
     }
   }
 
+  /// Reads the settings again without the loading state, for when the tab
+  /// comes back into view (a threshold review may have saved a new version).
+  /// Edits that are not saved are left alone.
+  Future<void> refresh() async {
+    if (_dirty || _saving || _loading || isDisposed) return;
+    try {
+      final latest = await _repository.load(studyId);
+      if (!_dirty && !_saving && !isDisposed) {
+        _apply(latest);
+        notifyListeners();
+      }
+    } catch (_) {
+      // Keep showing what is there; the next load reports a problem.
+    }
+  }
+
   void _apply(MeasurementSettings s) {
     _saved = s;
+    _dirty = false;
     final json = s.toJson();
     for (final f in fields) {
       _text[f.key] = _show(json[f.key]);
@@ -108,6 +135,7 @@ class MeasurementSettingsController extends SafeChangeNotifier {
 
   void setText(String key, String value) {
     _text[key] = value;
+    _dirty = true;
     if (_errors.containsKey(key)) {
       // Re-check only what is on screen so the message clears while typing.
       _errors = {..._errors}..remove(key);
@@ -118,6 +146,7 @@ class MeasurementSettingsController extends SafeChangeNotifier {
 
   void setAllowContinue(bool value) {
     _allowContinue = value;
+    _dirty = true;
     _notice = null;
     notifyListeners();
   }
@@ -165,7 +194,9 @@ class MeasurementSettingsController extends SafeChangeNotifier {
     return ok;
   }
 
-  Future<bool> save() async {
+  /// Saves the form. [rationale] (optional, at most [maxRationaleChars])
+  /// says why; the server keeps it with the new settings version.
+  Future<bool> save({String? rationale}) async {
     if (!canEdit || _saving) return false;
     _error = null;
     _notice = null;
@@ -178,7 +209,7 @@ class MeasurementSettingsController extends SafeChangeNotifier {
     _saving = true;
     notifyListeners();
     try {
-      _apply(await _repository.save(studyId, parsed));
+      _apply(await _repository.save(studyId, parsed, rationale: rationale));
       _notice = 'Measurement settings saved.';
       return true;
     } catch (e) {

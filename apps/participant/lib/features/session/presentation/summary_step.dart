@@ -1,6 +1,8 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
+import '../../../app_scope.dart';
+import '../../debrief/presentation/debrief_card.dart';
 import '../application/segment_recorder.dart';
 import '../application/session_flow_controller.dart';
 import '../domain/session_step.dart';
@@ -22,8 +24,12 @@ class SummaryStep extends StatelessWidget {
     final summary = c.summary;
     if (c.askingComfort) return _ComfortStep(controller: c);
     final stopped = c.gradual?.end == PracticeEnd.stopped;
+    final debrief = AppScope.maybeRead(context)?.debrief;
     return PageFrame(
       maxWidth: 960,
+      // The optional debrief card keeps what was typed while it is scrolled
+      // out of view.
+      buildAll: true,
       banner: c.error != null
           ? MessageBanner(message: c.error!, onDismiss: c.dismissError)
           : null,
@@ -57,6 +63,14 @@ class SummaryStep extends StatelessWidget {
                 )
         else
           SummaryView(summary: summary),
+        if (summary != null && summary.isEnded && debrief != null) ...[
+          const SizedBox(height: 12),
+          DebriefCard(
+            key: ValueKey('debrief-${summary.id}'),
+            repository: debrief,
+            sessionId: summary.id,
+          ),
+        ],
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,

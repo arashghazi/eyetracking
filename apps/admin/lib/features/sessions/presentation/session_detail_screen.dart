@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app_scope.dart';
 import '../../exports/application/download_controller.dart';
 import '../../exports/domain/exports_repository.dart';
+import '../../pilot/presentation/observations_panel.dart';
 import '../../replay/presentation/replay_screen.dart';
 import '../application/sessions_controller.dart';
 import 'session_widgets.dart';
@@ -16,11 +17,15 @@ class SessionDetailScreen extends StatefulWidget {
     required this.studyId,
     required this.sessionId,
     required this.participantCode,
+    this.canEdit = false,
   });
 
   final int studyId;
   final String sessionId;
   final String participantCode;
+
+  /// Researchers add supervisor observations; analysts only read them.
+  final bool canEdit;
 
   @override
   State<SessionDetailScreen> createState() => _SessionDetailScreenState();
@@ -154,6 +159,13 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     comfort: detail.summary.protocol?.definition?.comfort,
                   ),
                 ],
+                const SizedBox(height: 12),
+                SessionObservations(
+                  key: Key('session-observations-${widget.sessionId}'),
+                  studyId: widget.studyId,
+                  sessionId: widget.sessionId,
+                  canEdit: widget.canEdit,
+                ),
                 const SizedBox(height: 12),
                 _EventsSection(
                   events: detail.events,

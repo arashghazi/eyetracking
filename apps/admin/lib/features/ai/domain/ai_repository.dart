@@ -9,6 +9,11 @@ abstract class AiRepository {
   /// shown as the server wrote it.
   Future<AiBudget> setBudget(int studyId, double costCapUnits);
 
+  /// Switches whether a participant's free-text topic may be sent to the text
+  /// provider (administrators; `PUT budget {send_free_text}`). Returns the
+  /// setting as the server stored it.
+  Future<bool> setSendFreeText(int studyId, bool value);
+
   /// Creates a draft content item and the job that fills it. Refused with
   /// `budget_exceeded` or `provider_not_configured` when it cannot run.
   Future<AiJob> createTextJob(int studyId, TextJobRequest request);

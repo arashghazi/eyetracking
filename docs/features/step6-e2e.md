@@ -1,0 +1,21 @@
+# Step 6 — browser verification record (2026-09-30)
+
+Same setup as steps 2–5: headless Chromium with a fake camera, scratch SQLite, the gaze service in `e2e-fake` mode, admin web build on :5173, participant web build on :8080, API on :8765. Seed: the step-3 seed, then debrief questions switched on, three completed gradual sessions for P-001 made through the API with synthetic linear samples, one answered and one skipped debrief, two observations, a generated Tobii-like tracker export for the first session, and one open session fed with samples every second. The seeded sessions claim a non-synthetic estimator **only so the pilot pages show rows in this scratch database**. Nothing here is a measurement. Screenshots: `docs/features/screenshots/step6-*.png`.
+
+## Research Admin, signed in as the researcher
+1. **Live** (`step6-live-monitor`): the open session is listed. "Monitor" shows the segment, pauses so far, calibration valid, validation passed, the estimator, samples stored and "Since the last event". The last 10 s show valid share and region bars that change as the feed posts eye, mouth and away samples. The panel refreshes every 2.5 s: 4 polls in 8 s, one `live_monitor` access-log entry.
+2. **Observation** (`step6-live-observation`): category, severity and text with "Use current session time" saved an observation at 02:27.000. The list and counter update.
+3. **Thresholds** (`step6-threshold-review`, `step6-threshold-save-dialog`, `step6-settings-history`): current settings at version 1. Candidate "Minimum region-to-error ratio" 6, then Review shows pass counts, quality grades, distributions, by device and per-session rows. "Save as new settings version" opens a dialog with the change (2 -> 6) and requires a rationale. Saving creates version 2, and the history shows "Version 2 current, Author: user #2, Minimum region-to-error ratio: 2 -> 6" above version 1.
+4. **Tracker comparison** (`step6-tracker-import-form`, `step6-tracker-compare`): session 1 picked, the TSV chosen through the real file dialog, columns mapped, time unit microseconds, device pixels, offset 5000000. Import reported "489 samples (488 valid)". Compare, at 40 ms tolerance, gave region agreement 100 % over 50 pairs, median distance 7.2 px, p90 12.4 px and bias x -0.5 / y +1.5 px. The confusion matrix has all 50 pairs in eyes/eyes, with per-segment eye shares and the note "not a general accuracy claim". Cohen's kappa shows "-" because the synthetic data has a single region, so kappa is undefined.
+5. **Report** (`step6-report`, `step6-report-debrief-observations`): settings version 2, 4 sessions, 1 participant, validation passed 4 of 4, quality 3 OK and 1 review, 1 ended early, and a by-device table. The questions section shows 1 answered and 1 skipped, per-question counts and means, and comments. Observations shows 3 with category and severity. "Download CSV" saved `pilot_sessions_study1.csv` with a BOM and `debrief_*` columns.
+6. **Questions after a session** (`step6-debrief-editor`): version 1, the on/off switch and the six default questions in the editor.
+
+No browser console errors in the admin runs.
+
+## Participant App
+- A full gradual practice session ran in the browser: camera check, calibration, validation, baseline, three stages with comfort answers, post and summary. The summary then showed "A few questions about this session" (`step6-participant-debrief-card`) with the two required scales, two yes/no questions, two optional text fields, "Send answers" and "Skip these questions".
+- A second session: answered 4 and 4, Yes, a text, Yes and a text (`step6-participant-debrief-filled`). "Send answers" gave `POST /me/sessions/{id}/debrief` 201 and "Thank you. Your answers help us improve the sessions." (`step6-participant-debrief-thanks`). The stored answer holds exactly those six values.
+
+## Caveats
+- One driver run compared the wrong session (the open live one, whose timeline the tracker file does not cover), and one import lost its offset because the driver typed before the form rebuilt. The server log and a re-run showed both were driver timing, not the app.
+- No real research tracker, real webcam or real participant was involved. Tracker agreement, kappa and distances here only show that the pipeline works.

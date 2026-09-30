@@ -18,6 +18,7 @@ import 'features/invitations/data/api_invitations_repository.dart';
 import 'features/measurement_settings/data/api_measurement_settings_repository.dart';
 import 'features/members/data/api_members_repository.dart';
 import 'features/participants/data/api_participants_repository.dart';
+import 'features/pilot/data/api_pilot_repository.dart';
 import 'features/protocols/data/api_protocols_repository.dart';
 import 'features/replay/data/api_replay_repository.dart';
 import 'features/sessions/data/api_sessions_repository.dart';
@@ -58,6 +59,7 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     videoStage: (context, config) => VideoStage(config: config),
     saveFile: saveFile,
     ai: ApiAiRepository(api),
+    pilot: ApiPilotRepository(api),
   );
 }
 

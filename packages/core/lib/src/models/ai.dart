@@ -109,12 +109,12 @@ class AiStatus {
   /// topic may be sent to the text provider.
   final bool sendFreeText;
 
-  AiStatus copyWith({AiBudget? budget}) => AiStatus(
+  AiStatus copyWith({AiBudget? budget, bool? sendFreeText}) => AiStatus(
         textProvider: textProvider,
         videoProvider: videoProvider,
         budget: budget ?? this.budget,
         worker: worker,
-        sendFreeText: sendFreeText,
+        sendFreeText: sendFreeText ?? this.sendFreeText,
       );
 
   factory AiStatus.fromJson(Map<String, dynamic> json) => AiStatus(

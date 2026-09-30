@@ -189,6 +189,30 @@ class AiController extends SafeChangeNotifier {
     }
   }
 
+  /// Switches the free-text setting (administrators). The server's answer is
+  /// what the switch then shows; a refusal is kept in [budgetError].
+  Future<bool> setSendFreeText(bool value) async {
+    if (_busy) return false;
+    _budgetError = null;
+    _notice = null;
+    _busy = true;
+    notifyListeners();
+    try {
+      final stored = await _repository.setSendFreeText(studyId, value);
+      _status = _status?.copyWith(sendFreeText: stored);
+      _notice = stored
+          ? 'Free text is now sent to the text provider.'
+          : 'Free text is no longer sent to the text provider.';
+      return true;
+    } catch (e) {
+      _budgetError = userMessage(e);
+      return false;
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
   void clearBudgetError() {
     _budgetError = null;
     notifyListeners();

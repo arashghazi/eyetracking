@@ -26,6 +26,7 @@ export 'src/models/layout.dart';
 export 'src/models/measurement_settings.dart';
 export 'src/models/my_data.dart';
 export 'src/models/participant_record.dart';
+export 'src/models/pilot.dart';
 export 'src/models/practice.dart';
 export 'src/models/profile.dart';
 export 'src/models/protocol.dart';

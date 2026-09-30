@@ -20,6 +20,11 @@ class AppScope extends InheritedWidget {
     return scope!.dependencies;
   }
 
+  /// Like [read], but null when there is no [AppScope] (a screen shown on
+  /// its own in a test): optional features then stay out of the way.
+  static AppDependencies? maybeRead(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<AppScope>()?.dependencies;
+
   @override
   bool updateShouldNotify(AppScope oldWidget) =>
       dependencies != oldWidget.dependencies;

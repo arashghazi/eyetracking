@@ -96,7 +96,8 @@ class ApiClient {
   String resolveUrl(String url) =>
       url.startsWith('/') && !url.startsWith('//') ? '$baseUrl$url' : url;
 
-  /// Uploads [bytes] as the multipart field [field]. [onProgress] receives
+  /// Uploads [bytes] as the multipart field [field], after the text
+  /// [fields] (form values sent next to the file). [onProgress] receives
   /// the bytes handed to the HTTP client and the total; in a browser the
   /// client sends after it has read everything, so this shows preparation
   /// rather than network progress.
@@ -106,6 +107,7 @@ class ApiClient {
     required String filename,
     required String contentType,
     String field = 'file',
+    Map<String, String> fields = const {},
     void Function(int sent, int total)? onProgress,
   }) async {
     final token = tokenStore.token;
@@ -113,9 +115,16 @@ class ApiClient {
     // dependencies and lets us count the bytes as they are handed over.
     final boundary = 'et-${DateTime.now().microsecondsSinceEpoch}';
     final safeName = filename.replaceAll(RegExp(r'["\r\n]'), '_');
-    final head = utf8.encode('--$boundary\r\n'
-        'Content-Disposition: form-data; name="$field"; filename="$safeName"\r\n'
-        'Content-Type: $contentType\r\n\r\n');
+    // Text fields come first, then the file.
+    final head = <int>[
+      for (final e in fields.entries)
+        ...utf8.encode('--$boundary\r\n'
+            'Content-Disposition: form-data; name="${e.key.replaceAll(RegExp(r'["\r\n]'), '_')}"\r\n\r\n'
+            '${e.value}\r\n'),
+      ...utf8.encode('--$boundary\r\n'
+          'Content-Disposition: form-data; name="$field"; filename="$safeName"\r\n'
+          'Content-Type: $contentType\r\n\r\n'),
+    ];
     final tail = utf8.encode('\r\n--$boundary--\r\n');
     final total = head.length + bytes.length + tail.length;
     final request = http.StreamedRequest('POST', Uri.parse('$baseUrl$path'))

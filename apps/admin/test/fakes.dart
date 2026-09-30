@@ -22,6 +22,7 @@ import 'package:research_admin/features/invitations/domain/invitations_repositor
 import 'package:research_admin/features/measurement_settings/domain/measurement_settings_repository.dart';
 import 'package:research_admin/features/members/domain/members_repository.dart';
 import 'package:research_admin/features/participants/domain/participants_repository.dart';
+import 'package:research_admin/features/pilot/domain/pilot_repository.dart';
 import 'package:research_admin/features/protocols/domain/protocols_repository.dart';
 import 'package:research_admin/features/replay/domain/replay_repository.dart';
 import 'package:research_admin/features/sessions/domain/sessions_repository.dart';
@@ -554,23 +555,125 @@ class FakeSessionsRepository implements SessionsRepository {
   }
 }
 
+/// The eight values of [s] as the settings history shows them.
+SettingsValues settingsValuesOf(MeasurementSettings s) => SettingsValues(
+      validationMinCorrect: s.validationMinCorrect,
+      validationMaxUncertain: s.validationMaxUncertain,
+      minRegionToErrorRatio: s.minRegionToErrorRatio,
+      gazeConfThreshold: s.gazeConfThreshold,
+      calibrationPoints: s.calibrationPoints,
+      allowContinueWithoutValidation: s.allowContinueWithoutValidation,
+      qualityMaxUncertainShare: s.qualityMaxUncertainShare,
+      qualityMaxMissingShare: s.qualityMaxMissingShare,
+    );
+
 class FakeMeasurementSettingsRepository
     implements MeasurementSettingsRepository {
   MeasurementSettings settings = MeasurementSettings.defaults;
+
+  /// Every settings object saved through [save].
   final List<MeasurementSettings> saved = [];
+
+  /// The rationale of every save (null when none was given).
+  final List<String?> rationales = [];
+
+  /// Partial saves (a threshold review's changes) with their rationale.
+  final List<({Map<String, dynamic> changes, String? rationale})> changeSaves = [];
   ApiException? saveFailure;
+
+  /// The settings versions, newest first; a real change adds one.
+  List<SettingsVersion> history = [
+    const SettingsVersion(
+      version: 1,
+      rationale: 'Defaults; no change recorded yet',
+    ),
+  ];
 
   @override
   Future<MeasurementSettings> load(int studyId) async => settings;
 
+  MeasurementSettings _store(MeasurementSettings next, String? rationale) {
+    final changed = settingsValuesOf(next).changesFrom(settingsValuesOf(settings)).isNotEmpty;
+    var version = settings.version;
+    if (changed) {
+      version++;
+      history = [
+        SettingsVersion(
+          version: version,
+          values: settingsValuesOf(next),
+          rationale: rationale ?? '',
+          changedBy: 7,
+          createdAt: '2026-09-30T12:00:00',
+        ),
+        ...history,
+      ];
+    }
+    return settings = MeasurementSettings(
+      validationMinCorrect: next.validationMinCorrect,
+      validationMaxUncertain: next.validationMaxUncertain,
+      minRegionToErrorRatio: next.minRegionToErrorRatio,
+      gazeConfThreshold: next.gazeConfThreshold,
+      calibrationPoints: next.calibrationPoints,
+      allowContinueWithoutValidation: next.allowContinueWithoutValidation,
+      qualityMaxUncertainShare: next.qualityMaxUncertainShare,
+      qualityMaxMissingShare: next.qualityMaxMissingShare,
+      version: version,
+    );
+  }
+
   @override
   Future<MeasurementSettings> save(
     int studyId,
-    MeasurementSettings next,
-  ) async {
+    MeasurementSettings next, {
+    String? rationale,
+  }) async {
     if (saveFailure != null) throw saveFailure!;
     saved.add(next);
-    return settings = next;
+    rationales.add(rationale);
+    // The form does not send the quality thresholds; they keep their values.
+    return _store(
+      MeasurementSettings(
+        validationMinCorrect: next.validationMinCorrect,
+        validationMaxUncertain: next.validationMaxUncertain,
+        minRegionToErrorRatio: next.minRegionToErrorRatio,
+        gazeConfThreshold: next.gazeConfThreshold,
+        calibrationPoints: next.calibrationPoints,
+        allowContinueWithoutValidation: next.allowContinueWithoutValidation,
+        qualityMaxUncertainShare: settings.qualityMaxUncertainShare,
+        qualityMaxMissingShare: settings.qualityMaxMissingShare,
+      ),
+      rationale,
+    );
+  }
+
+  @override
+  Future<MeasurementSettings> saveChanges(
+    int studyId,
+    Map<String, dynamic> changes, {
+    String? rationale,
+  }) async {
+    if (saveFailure != null) throw saveFailure!;
+    changeSaves.add((changes: Map.of(changes), rationale: rationale));
+    double d(String key, double current) =>
+        (changes[key] as num?)?.toDouble() ?? current;
+    final s = settings;
+    return _store(
+      MeasurementSettings(
+        validationMinCorrect: d('validation_min_correct', s.validationMinCorrect),
+        validationMaxUncertain:
+            d('validation_max_uncertain', s.validationMaxUncertain),
+        minRegionToErrorRatio:
+            d('min_region_to_error_ratio', s.minRegionToErrorRatio),
+        gazeConfThreshold: d('gaze_conf_threshold', s.gazeConfThreshold),
+        calibrationPoints: s.calibrationPoints,
+        allowContinueWithoutValidation: s.allowContinueWithoutValidation,
+        qualityMaxUncertainShare:
+            d('quality_max_uncertain_share', s.qualityMaxUncertainShare),
+        qualityMaxMissingShare:
+            d('quality_max_missing_share', s.qualityMaxMissingShare),
+      ),
+      rationale,
+    );
   }
 }
 
@@ -1106,6 +1209,7 @@ class TestBed {
     FakeExportsRepository? exports,
     FakeAccessLogRepository? accessLog,
     FakeAiRepository? ai,
+    FakePilotRepository? pilot,
     FakeStudiesRepository? studies,
     bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
@@ -1128,6 +1232,7 @@ class TestBed {
         sessions = sessions ?? FakeSessionsRepository(),
         measurementSettings =
             measurementSettings ?? FakeMeasurementSettingsRepository() {
+    this.pilot = pilot ?? FakePilotRepository(settings: this.measurementSettings);
     auth = AuthController(authRepository);
   }
 
@@ -1150,8 +1255,10 @@ class TestBed {
   final FakeExportsRepository exports;
   final FakeAccessLogRepository accessLog;
   final FakeAiRepository ai;
+  late final FakePilotRepository pilot;
 
-  /// The AI tab's auto-refresh timers, fired by hand.
+  /// The AI tab's auto-refresh timers and the live monitor's polling timers,
+  /// fired by hand.
   final List<ManualTimer> timers = [];
 
   /// What the downloads handed to the browser.
@@ -1181,6 +1288,7 @@ class TestBed {
         videoStage: FakeVideoStage.builder(player: videoPlayer),
         saveFile: saver.call,
         ai: ai,
+        pilot: pilot,
         schedule: (d, f) {
           final t = ManualTimer(d, f);
           timers.add(t);
@@ -1597,6 +1705,7 @@ class FakeAiRepository implements AiRepository {
   final List<TextJobRequest> textRequests = [];
   final List<VideoJobRequest> videoRequests = [];
   final List<double> budgetChanges = [];
+  final List<bool> freeTextChanges = [];
   final List<String> cancelled = [];
   final List<String> retried = [];
   final List<int> runs = [];
@@ -1624,6 +1733,14 @@ class FakeAiRepository implements AiRepository {
     );
     statusValue = statusValue.copyWith(budget: budget);
     return budget;
+  }
+
+  @override
+  Future<bool> setSendFreeText(int studyId, bool value) async {
+    if (budgetFailure != null) throw budgetFailure!;
+    freeTextChanges.add(value);
+    statusValue = statusValue.copyWith(sendFreeText: value);
+    return value;
   }
 
   @override
@@ -1734,5 +1851,233 @@ class FakeAiRepository implements AiRepository {
             : j,
     ];
     return runResult;
+  }
+}
+
+
+// ------------------------------------------------------------------ step 6
+
+/// The step 6 endpoints, answering from what a test sets and recording what
+/// the screens asked.
+class FakePilotRepository implements PilotRepository {
+  FakePilotRepository({this.settings});
+
+  /// Supplies the settings history (a threshold save adds a version there).
+  final FakeMeasurementSettingsRepository? settings;
+
+  // ------------------------------------------------------- settings history
+  List<SettingsVersion>? historyOverride;
+  ApiException? historyFailure;
+  int historyReads = 0;
+
+  // ------------------------------------------------------ threshold review
+  ThresholdReview reviewResult = const ThresholdReview();
+  ApiException? reviewFailure;
+  final List<({Map<String, dynamic> changes, bool includeSynthetic})> reviews = [];
+
+  // ---------------------------------------------------------- observations
+  final Map<String, List<Observation>> observationsBySession = {};
+  ApiException? observationsFailure;
+  ApiException? addObservationFailure;
+  final List<({String sessionId, ObservationRequest request})> addedObservations = [];
+  int _observationId = 100;
+
+  // ---------------------------------------------------------- live monitor
+  List<ActiveSession> active = [];
+  ApiException? activeFailure;
+  int activeReads = 0;
+
+  /// What the next polls answer; the last one repeats.
+  List<LiveStatus> liveQueue = [];
+  ApiException? liveFailure;
+  final List<({String sessionId, bool first})> liveCalls = [];
+
+  // --------------------------------------------------------------- debrief
+  DebriefForm form = const DebriefForm();
+  ApiException? debriefLoadFailure;
+  ApiException? debriefSaveFailure;
+  final List<({List<DebriefQuestion>? questions, bool? enabled})> debriefSaves = [];
+
+  // ------------------------------------------------- research eye tracker
+  final Map<String, List<ReferenceRecording>> recordingsBySession = {};
+  ReferenceComparison comparisonResult = const ReferenceComparison();
+  ApiException? importFailure;
+  ApiException? referencesFailure;
+  ApiException? compareFailure;
+  final List<({
+    String sessionId,
+    String filename,
+    int size,
+    ReferenceImportRequest request,
+  })> imports = [];
+  final List<({String sessionId, String recordingId, int toleranceMs})> compares = [];
+
+  // ---------------------------------------------------------------- report
+  PilotReport reportResult = const PilotReport();
+  ApiException? reportFailure;
+  final List<bool> reportRequests = [];
+  Uint8List csvBytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, 0x73, 0x0A]);
+  final List<bool> csvRequests = [];
+  ApiException? csvFailure;
+
+  @override
+  Future<List<SettingsVersion>> settingsHistory(int studyId) async {
+    historyReads++;
+    if (historyFailure != null) throw historyFailure!;
+    return historyOverride ??
+        settings?.history ??
+        [const SettingsVersion(version: 1, rationale: 'Defaults; no change recorded yet')];
+  }
+
+  @override
+  Future<ThresholdReview> thresholdReview(
+    int studyId, {
+    Map<String, dynamic> changes = const {},
+    bool includeSynthetic = false,
+  }) async {
+    if (reviewFailure != null) throw reviewFailure!;
+    reviews.add((changes: Map.of(changes), includeSynthetic: includeSynthetic));
+    return reviewResult;
+  }
+
+  @override
+  Future<List<Observation>> observations(int studyId, String sessionId) async {
+    if (observationsFailure != null) throw observationsFailure!;
+    return List.of(observationsBySession[sessionId] ?? const []);
+  }
+
+  @override
+  Future<Observation> addObservation(
+    int studyId,
+    String sessionId,
+    ObservationRequest request,
+  ) async {
+    if (addObservationFailure != null) throw addObservationFailure!;
+    addedObservations.add((sessionId: sessionId, request: request));
+    final created = Observation(
+      id: '${_observationId++}',
+      sessionId: sessionId,
+      authorId: 7,
+      category: request.category,
+      severity: request.severity,
+      text: request.text,
+      tMs: request.tMs,
+      createdAt: '2026-09-30T12:30:00',
+    );
+    observationsBySession.update(
+      sessionId,
+      (list) => [...list, created],
+      ifAbsent: () => [created],
+    );
+    return created;
+  }
+
+  @override
+  Future<List<ActiveSession>> activeSessions(int studyId) async {
+    activeReads++;
+    if (activeFailure != null) throw activeFailure!;
+    return List.of(active);
+  }
+
+  @override
+  Future<LiveStatus> live(int studyId, String sessionId, {bool first = false}) async {
+    liveCalls.add((sessionId: sessionId, first: first));
+    if (liveFailure != null) throw liveFailure!;
+    if (liveQueue.isEmpty) return LiveStatus(sessionId: sessionId);
+    final index = (liveCalls.length - 1).clamp(0, liveQueue.length - 1);
+    return liveQueue[index];
+  }
+
+  @override
+  Future<DebriefForm> debriefForm(int studyId) async {
+    if (debriefLoadFailure != null) throw debriefLoadFailure!;
+    return form;
+  }
+
+  @override
+  Future<DebriefForm> saveDebriefForm(
+    int studyId, {
+    List<DebriefQuestion>? questions,
+    bool? enabled,
+  }) async {
+    if (debriefSaveFailure != null) throw debriefSaveFailure!;
+    debriefSaves.add((questions: questions, enabled: enabled));
+    // What the server does: changed questions make the next version.
+    final changed = questions != null &&
+        (form.version == 0 ||
+            questions.map((q) => q.toJson().toString()).join('|') !=
+                form.questions.map((q) => q.toJson().toString()).join('|'));
+    form = DebriefForm(
+      version: changed ? form.version + 1 : form.version,
+      enabled: enabled ?? form.enabled,
+      questions: changed ? questions : form.questions,
+      saved: true,
+    );
+    return form;
+  }
+
+  @override
+  Future<ReferenceRecording> importReference(
+    int studyId,
+    String sessionId, {
+    required Uint8List bytes,
+    required String filename,
+    required ReferenceImportRequest request,
+  }) async {
+    if (importFailure != null) throw importFailure!;
+    imports.add((
+      sessionId: sessionId,
+      filename: filename,
+      size: bytes.length,
+      request: request,
+    ));
+    final recording = ReferenceRecording(
+      id: '${900 + imports.length}',
+      sessionId: sessionId,
+      source: request.source,
+      settings: {'alignment': request.autoAlignWindowMs > 0 ? 'estimated_from_data' : 'given_offset'},
+      sampleCount: 1200,
+      validCount: 1100,
+      uploadedBy: 7,
+      createdAt: '2026-09-30T13:00:00',
+    );
+    recordingsBySession.update(
+      sessionId,
+      (list) => [...list, recording],
+      ifAbsent: () => [recording],
+    );
+    return recording;
+  }
+
+  @override
+  Future<List<ReferenceRecording>> references(int studyId, String sessionId) async {
+    if (referencesFailure != null) throw referencesFailure!;
+    return List.of(recordingsBySession[sessionId] ?? const []);
+  }
+
+  @override
+  Future<ReferenceComparison> compare(
+    int studyId,
+    String sessionId,
+    String recordingId, {
+    int toleranceMs = 40,
+  }) async {
+    if (compareFailure != null) throw compareFailure!;
+    compares.add((sessionId: sessionId, recordingId: recordingId, toleranceMs: toleranceMs));
+    return comparisonResult;
+  }
+
+  @override
+  Future<PilotReport> report(int studyId, {bool includeSynthetic = false}) async {
+    reportRequests.add(includeSynthetic);
+    if (reportFailure != null) throw reportFailure!;
+    return reportResult;
+  }
+
+  @override
+  Future<Uint8List> reportCsv(int studyId, {bool includeSynthetic = false}) async {
+    csvRequests.add(includeSynthetic);
+    if (csvFailure != null) throw csvFailure!;
+    return csvBytes;
   }
 }
