@@ -328,6 +328,17 @@ def _debrief_of(uow, session_id: int) -> dict | None:
     return {"form_version": a.form_version, "answers": a.answers, "skipped": a.skipped} if a else None
 
 
+def _conversation_of(uow, session_id: int) -> dict | None:
+    repo = getattr(uow, "live", None)
+    c = repo.conversation_for_session(session_id) if repo is not None else None
+    if c is None:
+        return None
+    return {
+        "topic": c.topic, "input_mode": c.input_mode, "transcript_kept": c.transcript_allowed, "status": c.status.value, "end_reason": c.end_reason,
+        "turns": [{"index": t.index, "role": t.role, "text": t.text, "chars": t.chars, "t_ms": t.t_ms, "flags": list(t.flags)} for t in repo.turns(c.id or 0)],
+    }
+
+
 def my_full_data(uow: ResearchUnitOfWork, principal: Principal) -> dict:
     from .use_cases import my_data_export
 
@@ -344,6 +355,7 @@ def my_full_data(uow: ResearchUnitOfWork, principal: Principal) -> dict:
                 "trials": [{"stage_index": t.stage_index, "trial_index": t.trial_index, "t_ms": t.t_ms, "number_shown": t.number_shown, "zone": t.zone, "response": t.response, "correct": t.correct} for t in uow.trials.for_session(sid)],
                 "answers": [{"segment_id": a.segment_id, "question_id": a.question_id, "kind": a.kind, "option": a.option, "correct": a.correct, "t_ms": a.t_ms} for a in uow.answers.for_session(sid)],
                 "debrief": _debrief_of(uow, sid),
+                "conversation": _conversation_of(uow, sid),
             }
         )
     data["sessions"] = sessions

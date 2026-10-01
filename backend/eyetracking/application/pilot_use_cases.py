@@ -37,6 +37,7 @@ from eyetracking.domain.research import grade_quality
 
 from .authz import Principal, require_participant, require_study_access
 from .measurement_use_cases import settings_for_study, summarize
+from .live_use_cases import monitor_block
 from .ports import Clock, PilotUnitOfWork
 from .research_use_cases import log_access
 
@@ -235,6 +236,7 @@ def live_status(uow: PilotUnitOfWork, clock: Clock, principal: Principal, study_
         "recent_events": [{"t_ms": e.t_ms, "type": e.type, "payload": e.payload} for e in sorted(events, key=lambda e: (e.t_ms, e.id or 0))[-8:]],
         "seconds_since_last_event": round((now - last_event_at).total_seconds(), 1) if last_event_at else None,
         "observations": len(uow.observations.for_session(sid)),
+        "conversation": monitor_block(uow, sid),
         "end_reason": s.end_reason,
         "note": "Live view for the supervisor. Region counts come from the webcam estimate; with a synthetic estimator they mean nothing.",
     }
@@ -510,6 +512,10 @@ def pilot_report_data(uow: PilotUnitOfWork, principal: Principal, study_id: int,
             "observations": len(obs),
             "observations_major_or_stop": sum(1 for o in obs if o.severity in ("major", "stop")),
             "reference_recordings": refs.get(sid, 0),
+            "conversation_turns": (out.get("conversation") or {}).get("participant_turns"),
+            "conversation_on_topic_share": (out.get("conversation") or {}).get("on_topic_share"),
+            "conversation_distress": (out.get("conversation") or {}).get("distress"),
+            "conversation_end_reason": (out.get("conversation") or {}).get("end_reason"),
         })
     kept_obs = [o for o in observations if o.session_id in kept_sessions]
     obs_matrix: dict[str, dict[str, int]] = {}

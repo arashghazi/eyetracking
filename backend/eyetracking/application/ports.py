@@ -333,3 +333,43 @@ class PilotUnitOfWork(AiUnitOfWork, Protocol):
     debrief_forms: DebriefFormRepo
     debrief_answers: DebriefAnswerRepo
     references: ReferenceRepo
+
+
+# ---------- step 7: live avatar ----------
+
+from eyetracking.domain.live import LiveConversation, LiveTurn  # noqa: E402
+
+
+class LiveRepo(Protocol):
+    def add_conversation(self, c: LiveConversation) -> LiveConversation: ...
+    def conversation_for_session(self, session_id: int) -> LiveConversation | None: ...
+    def add_turn(self, t: LiveTurn) -> LiveTurn: ...
+    def turns(self, conversation_id: int) -> list[LiveTurn]: ...
+    def open_for_study(self, study_id: int) -> list[LiveConversation]: ...
+
+
+class ReplyGenerator(Protocol):
+    """Writes the avatar's next reply as a dict matching domain.live.REPLY_SCHEMA."""
+
+    def info(self) -> dict: ...
+    def estimate_cost(self) -> float: ...
+    def reply(self, system: str, conversation: str, topic: str) -> tuple[dict, dict]: ...
+
+
+class SpeechToText(Protocol):
+    """Turns one recorded utterance into text. Audio is processed in memory and never stored."""
+
+    def info(self) -> dict: ...
+    def transcribe(self, audio: bytes, content_type: str, language: str = "en") -> str: ...
+
+
+class LiveAvatarProvider(Protocol):
+    """The face and voice the participant sees and hears."""
+
+    def info(self) -> dict: ...
+    def client_config(self, avatar_id: str, voice_id: str) -> dict: ...
+    def estimate_cost_per_minute(self) -> float: ...
+
+
+class LiveUnitOfWork(PilotUnitOfWork, Protocol):
+    live: LiveRepo

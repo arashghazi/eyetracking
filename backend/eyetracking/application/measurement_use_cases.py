@@ -285,9 +285,11 @@ def add_event(uow: MeasurementUnitOfWork, clock: Clock, principal: Principal, se
         s.status = SessionStatus.ended
         s.ended_at = clock.now()
         s.end_reason = reason
+        from .live_use_cases import close_on_session_end
         from .practice_use_cases import on_session_end
 
         on_session_end(uow, s)
+        close_on_session_end(uow, clock, s)
     elif type_ == "comfort_answer":
         from .practice_use_cases import validate_comfort_payload
 

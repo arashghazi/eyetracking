@@ -27,3 +27,12 @@ class Settings(BaseSettings):
     heygen_cost_per_minute_units: float = 1.0
     ai_worker_enabled: bool = False
     ai_worker_interval_s: int = 5
+    # live avatar (step 7): replies, speech to text and the avatar itself are swappable
+    live_reply_provider: str = "fake"  # fake | anthropic
+    live_reply_model: str = "claude-opus-5-5"
+    live_reply_effort: str = "low"  # low | medium | high
+    stt_provider: str = "fake"  # fake | whisper_http
+    stt_base_url: str | None = None  # e.g. http://127.0.0.1:8200 for a local Whisper-compatible server
+    stt_model: str = "whisper-1"
+    stt_api_key: str | None = None
+    live_avatar_provider: str = "fake"  # fake (sample video + browser voice); streaming providers need a vendor decision

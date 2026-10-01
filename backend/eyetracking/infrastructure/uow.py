@@ -87,6 +87,7 @@ class SqlUnitOfWork:
         self.debrief_forms = r.SqlDebriefFormRepo(self.session)
         self.debrief_answers = r.SqlDebriefAnswerRepo(self.session)
         self.references = r.SqlReferenceRepo(self.session)
+        self.live = r.SqlLiveRepo(self.session)
 
     def commit(self) -> None:
         self.session.commit()
@@ -113,11 +114,15 @@ class SqlUnitOfWork:
             counts["reference_samples"] = int(self.session.execute(delete(ReferenceSample).where(ReferenceSample.recording_id.in_(rec_ids))).rowcount or 0) if rec_ids else 0
             for name, model in (("reference_recordings", ReferenceRecording), ("observations", Observation), ("debrief_answers", DebriefAnswer)):
                 counts[name] = int(self.session.execute(delete(model).where(model.session_id.in_(session_ids))).rowcount or 0)
+            from eyetracking.domain.live import LiveConversation, LiveTurn
+
+            counts["live_turns"] = int(self.session.execute(delete(LiveTurn).where(LiveTurn.session_id.in_(session_ids))).rowcount or 0)
+            counts["live_conversations"] = int(self.session.execute(delete(LiveConversation).where(LiveConversation.session_id.in_(session_ids))).rowcount or 0)
             for name, model in (("samples", GazeSample), ("events", SessionEvent), ("trials", Trial), ("stage_results", StageResult), ("answers", Answer), ("validations", Validation), ("calibrations", Calibration), ("layouts", StimulusLayout)):
                 counts[name] = int(self.session.execute(delete(model).where(model.session_id.in_(session_ids))).rowcount or 0)
             self.session.execute(delete(Session).where(Session.id.in_(session_ids)))
         else:
-            counts.update({k: 0 for k in ("samples", "events", "trials", "stage_results", "answers", "validations", "calibrations", "layouts", "reference_samples", "reference_recordings", "observations", "debrief_answers")})
+            counts.update({k: 0 for k in ("samples", "events", "trials", "stage_results", "answers", "validations", "calibrations", "layouts", "reference_samples", "reference_recordings", "observations", "debrief_answers", "live_turns", "live_conversations")})
         counts["consents"] = int(self.session.execute(delete(Consent).where(Consent.participant_id == participant_id)).rowcount or 0)
         counts["demographics"] = int(self.session.execute(delete(DemographicsAnswer).where(DemographicsAnswer.participant_id == participant_id)).rowcount or 0)
         counts["profile"] = int(self.session.execute(delete(Profile).where(Profile.participant_id == participant_id)).rowcount or 0)

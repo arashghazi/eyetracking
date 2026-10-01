@@ -14,7 +14,7 @@ from statistics import mean
 
 from .errors import Conflict, Invalid
 
-PATHS = ("gradual_face", "interest_conversation")
+PATHS = ("gradual_face", "interest_conversation", "live_conversation")
 ZONES = ("outside", "face_edge", "near_eyes", "eye_region")
 RESPONSE_MODES = ("number", "four_choice", "symbol", "profile")
 ANSWER_KINDS = ("interaction", "comprehension")
@@ -222,6 +222,10 @@ def validate_protocol(definition: dict) -> None:
                 if changed > 1 and not simultaneous:
                     raise Invalid(f"{where} changes both face_level and number_zone; allow_simultaneous_change is off")
             prev = (level, zone)
+    elif path == "live_conversation":
+        from .live import validate_live
+
+        validate_live(definition.get("live"))
     else:
         it = definition.get("interest")
         if not isinstance(it, dict):
@@ -376,7 +380,7 @@ def comfort_outcome(values: list[int], min_ok: int, pauses: int, ended_early: bo
 
 
 def improvement(
-    gaze: dict, comprehension: dict, number_task: dict, comfort_values: list[int], min_ok: int, path: str | None
+    gaze: dict, comprehension: dict, number_task: dict, comfort_values: list[int], min_ok: int, path: str | None, conversation: dict | None = None
 ) -> dict:
     criteria: dict = {"eye_share_up": None, "comfort_not_worse": None, "comprehension_maintained": None}
     if not gaze.get("evaluable"):
@@ -392,6 +396,11 @@ def improvement(
     if path == "interest_conversation":
         share = comprehension.get("share")
         criteria["comprehension_maintained"] = None if share is None else share >= 0.5
+    elif path == "live_conversation":
+        conv = conversation or {}
+        share = conv.get("on_topic_share")
+        enough = (conv.get("participant_turns") or 0) >= 2
+        criteria["comprehension_maintained"] = None if share is None or not enough else share >= 0.5
     else:
         share = number_task.get("share")
         criteria["comprehension_maintained"] = None if share is None else share >= 0.5

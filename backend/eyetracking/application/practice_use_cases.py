@@ -257,7 +257,7 @@ def create_assignment(uow: PracticeUnitOfWork, principal: Principal, study_id: i
     if proto.status is not ProtocolStatus.published:
         raise Invalid("only published protocol versions can be assigned")
     existing = uow.assignments.list_for_participant(p.id or 0)
-    status = AssignmentStatus.pending_topic if proto.path == "interest_conversation" else AssignmentStatus.ready
+    status = AssignmentStatus.pending_topic if proto.path in ("interest_conversation", "live_conversation") else AssignmentStatus.ready
     a = uow.assignments.add(
         Assignment(participant_id=p.id or 0, study_id=study_id, protocol_id=proto.id or 0, order_index=order_index if order_index is not None else len(existing), status=status)
     )
@@ -312,7 +312,9 @@ def confirm_topic(uow: PracticeUnitOfWork, principal: Principal, assignment_id: 
         raise Invalid("topic is required (up to 200 characters)")
     a.topic = topic.strip()
     a.topic_free_text = (free_text or "").strip()[:2000] or None
-    a.status = AssignmentStatus.content_pending
+    proto = uow.protocols.get(a.protocol_id)
+    # the live avatar needs no prepared content: the confirmed topic is what it may talk about
+    a.status = AssignmentStatus.ready if proto is not None and proto.path == "live_conversation" else AssignmentStatus.content_pending
     uow.commit()
     return _assignment_view(uow, a)
 
@@ -573,12 +575,19 @@ def practice_summary(uow: PracticeUnitOfWork, s: Session, base: dict) -> dict:
     out = dict(base)
     out["assignment_id"] = s.assignment_id
     out["protocol"] = {"id": proto.id, "name": proto.name, "version": proto.version, "path": proto.path, "definition": proto.definition} if proto else None
+    conversation = None
+    if proto is not None and proto.path == "live_conversation" and getattr(uow, "live", None) is not None:
+        from eyetracking.domain.live import conversation_outcome
+
+        conv = uow.live.conversation_for_session(s.id or 0)
+        conversation = conversation_outcome(uow.live.turns(conv.id or 0), conv.end_reason) if conv else conversation_outcome([], None)
     out["outcomes"] = {
         "gaze": gaze,
         "comprehension": comprehension,
         "number_task": number_task,
         "comfort": comfort,
-        "improvement": improvement(gaze, comprehension, number_task, comfort_values, min_ok, proto.path if proto else None),
+        "conversation": conversation,
+        "improvement": improvement(gaze, comprehension, number_task, comfort_values, min_ok, proto.path if proto else None, conversation),
     }
     out["stages"] = [
         {"stage_index": r.stage_index, "decision": r.decision, "reason": r.reason, "correct_ratio": r.correct_ratio, "invalid_share": r.invalid_share, "comfort_value": r.comfort_value, "trials": r.trials, "next_stage_index": r.next_stage_index}

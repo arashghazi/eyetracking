@@ -164,6 +164,7 @@ def start_mappers() -> None:
     start_research_mappers()
     start_ai_mappers()
     start_pilot_mappers()
+    start_live_mappers()
     _mapped = True
 
 
@@ -588,3 +589,53 @@ def start_pilot_mappers() -> None:
     mapper_registry.map_imperatively(DebriefAnswer, debrief_answers)
     mapper_registry.map_imperatively(ReferenceRecording, reference_recordings)
     mapper_registry.map_imperatively(ReferenceSample, reference_samples)
+
+
+# ---------- step 7 tables ----------
+
+from eyetracking.domain.live import ConversationStatus, LiveConversation, LiveTurn  # noqa: E402
+
+live_conversations = Table(
+    "live_conversations",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False, unique=True),
+    Column("study_id", Integer, ForeignKey("studies.id"), nullable=False),
+    Column("participant_id", Integer, nullable=False),
+    Column("topic", String(200), nullable=False),
+    Column("input_mode", String(10), nullable=False),
+    Column("transcript_allowed", Boolean, nullable=False, default=False),
+    Column("reply_provider", String(40), nullable=False),
+    Column("avatar_provider", String(40), nullable=False),
+    Column("stt_provider", String(40), nullable=False),
+    Column("status", Enum(ConversationStatus), nullable=False),
+    Column("turns_used", Integer, nullable=False, default=0),
+    Column("off_topic_streak", Integer, nullable=False, default=0),
+    Column("end_reason", String(30), nullable=True),
+    Column("cost_units", Float, nullable=False, default=0.0),
+    Column("started_at", DateTime, nullable=False),
+    Column("ended_at", DateTime, nullable=True),
+)
+
+live_turns = Table(
+    "live_turns",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("conversation_id", Integer, ForeignKey("live_conversations.id"), nullable=False),
+    Column("session_id", Integer, ForeignKey("sessions.id"), nullable=False),
+    Column("index", Integer, nullable=False),
+    Column("role", String(12), nullable=False),
+    Column("text", Text, nullable=True),
+    Column("chars", Integer, nullable=False, default=0),
+    Column("t_ms", Integer, nullable=True),
+    Column("flags", JSON, nullable=False, default=list),
+    Column("latency_ms", Integer, nullable=True),
+    Column("cost_units", Float, nullable=False, default=0.0),
+    Column("created_at", DateTime, nullable=False),
+    Index("ix_live_turns_conversation", "conversation_id", "index"),
+)
+
+
+def start_live_mappers() -> None:
+    mapper_registry.map_imperatively(LiveConversation, live_conversations)
+    mapper_registry.map_imperatively(LiveTurn, live_turns)

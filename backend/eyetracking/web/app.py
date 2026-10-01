@@ -13,7 +13,7 @@ from eyetracking.infrastructure.media import LocalMediaStore
 from eyetracking.infrastructure.security import Argon2Hasher, HmacMediaSigner, JwtTokens, SystemClock
 from eyetracking.infrastructure.uow import SqlUnitOfWork, create_schema, make_engine, session_factory_for
 
-from .routers import ai, auth, participant, pilot, practice, research, sessions, studies
+from .routers import ai, auth, live, participant, pilot, practice, research, sessions, studies
 from .settings import Settings
 
 _STATUS = {NotFound: 404, Forbidden: 403, Conflict: 409, Invalid: 422, AuthenticationFailed: 401}
@@ -51,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.media_store = LocalMediaStore(settings.media_dir)
     app.state.media_signer = HmacMediaSigner(settings.jwt_secret, settings.media_url_ttl_seconds)
     app.state.ai_providers = _build_ai_providers(settings)
+    app.state.live_providers = _build_live_providers(settings)
     app.state.ai_worker = None
     if settings.ai_worker_enabled:
         from eyetracking.infrastructure.ai.worker import AiWorker
@@ -82,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(practice.router)
     app.include_router(ai.router)
     app.include_router(pilot.router)
+    app.include_router(live.router)
     if settings.gaze_in_api:
         from fastapi import Depends
 
@@ -112,3 +114,25 @@ def _build_ai_providers(settings: Settings):
     else:
         video = FakeVideoGenerator()
     return Providers(text=text, video=video, worker_enabled=settings.ai_worker_enabled, worker_interval_s=settings.ai_worker_interval_s)
+
+
+def _build_live_providers(settings: Settings):
+    """Live avatar providers from settings. The development ones need no key and cost nothing."""
+    from eyetracking.application.live_use_cases import LiveProviders
+    from eyetracking.infrastructure.live.fake import FakeAvatarProvider, FakeReplyGenerator, FakeSpeechToText
+
+    if settings.live_reply_provider == "anthropic":
+        from eyetracking.infrastructure.live.anthropic_reply import AnthropicReplyGenerator
+
+        reply = AnthropicReplyGenerator(settings.anthropic_api_key, settings.live_reply_model, settings.live_reply_effort)
+    else:
+        reply = FakeReplyGenerator()
+    if settings.stt_provider == "whisper_http":
+        from eyetracking.infrastructure.live.whisper_http import WhisperHttpSpeechToText
+
+        stt = WhisperHttpSpeechToText(settings.stt_base_url, settings.stt_model, settings.stt_api_key)
+    else:
+        stt = FakeSpeechToText()
+    if settings.live_avatar_provider != "fake":
+        raise ValueError(f"live_avatar_provider '{settings.live_avatar_provider}' is not available; only 'fake' exists until a streaming vendor is chosen")
+    return LiveProviders(reply=reply, stt=stt, avatar=FakeAvatarProvider())

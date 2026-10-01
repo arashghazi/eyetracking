@@ -508,3 +508,31 @@ class SqlReferenceRepo(_Repo):
             select(ReferenceSample.t_ms, ReferenceSample.x, ReferenceSample.y, ReferenceSample.valid).where(ReferenceSample.recording_id == recording_id).order_by(ReferenceSample.t_ms)
         )
         return [(int(t), x, y, bool(v)) for t, x, y, v in rows]
+
+
+# ---------- step 7 repositories ----------
+
+from eyetracking.domain.live import LiveConversation, LiveTurn  # noqa: E402
+
+
+class SqlLiveRepo(_Repo):
+    def add_conversation(self, c: LiveConversation) -> LiveConversation:
+        self.s.add(c)
+        self.s.flush()
+        return c
+
+    def conversation_for_session(self, session_id: int) -> LiveConversation | None:
+        return self.s.scalar(select(LiveConversation).where(LiveConversation.session_id == session_id))
+
+    def add_turn(self, t: LiveTurn) -> LiveTurn:
+        self.s.add(t)
+        self.s.flush()
+        return t
+
+    def turns(self, conversation_id: int) -> list[LiveTurn]:
+        return list(self.s.scalars(select(LiveTurn).where(LiveTurn.conversation_id == conversation_id).order_by(LiveTurn.index)))
+
+    def open_for_study(self, study_id: int) -> list[LiveConversation]:
+        from eyetracking.domain.live import ConversationStatus
+
+        return list(self.s.scalars(select(LiveConversation).where(LiveConversation.study_id == study_id, LiveConversation.status == ConversationStatus.open)))
