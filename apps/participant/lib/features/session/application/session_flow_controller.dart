@@ -5,12 +5,14 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 
 import '../../assignments/domain/assignments_repository.dart';
 import '../../profile/domain/profile_repository.dart';
+import '../domain/live_repository.dart';
 import '../domain/number_placement.dart';
 import '../domain/session_repository.dart';
 import '../domain/session_step.dart';
 import '../domain/stimulus_geometry.dart';
 import 'gradual_practice_controller.dart';
 import 'interest_practice_controller.dart';
+import 'live_practice_controller.dart';
 import 'segment_recorder.dart';
 
 /// Runs the guided session: introduction, camera check, calibration,
@@ -33,8 +35,12 @@ class SessionFlowController extends SafeChangeNotifier {
     this.assignment,
     this._assignments,
     ProfileRepository? profile,
+    LiveRepository? live,
+    this._speech,
+    this._audioRecorder,
     math.Random? random,
   })  : _repo = repository,
+        _liveRepo = live,
         _profileRepo = profile,
         _random = random ?? math.Random() {
     _recorder = _FlowRecorder(this);
@@ -50,6 +56,12 @@ class SessionFlowController extends SafeChangeNotifier {
   final Assignment? assignment;
   final AssignmentsRepository? _assignments;
   final ProfileRepository? _profileRepo;
+
+  // Step 7: the live conversation's server port, the avatar's voice and the
+  // microphone (all optional: a session without a live path needs none).
+  final LiveRepository? _liveRepo;
+  final SpeechSynthesizer? _speech;
+  final AudioRecorderFactory? _audioRecorder;
   final math.Random _random;
   late final SegmentRecorder _recorder;
 
@@ -83,6 +95,7 @@ class SessionFlowController extends SafeChangeNotifier {
   ProtocolDefinition? _protocolDef;
   GradualPracticeController? _gradual;
   InterestPracticeController? _interest;
+  LivePracticeController? _live;
   bool _baselineDone = false;
   SessionSegmentName? _openSegment;
   SessionSegmentName _observation = SessionSegmentName.baseline;
@@ -159,9 +172,13 @@ class SessionFlowController extends SafeChangeNotifier {
   /// The frozen protocol version this session runs (after it was created).
   ProtocolDefinition? get protocol => _protocolDef;
   bool get isInterest => _protocolDef?.path == ProtocolPath.interestConversation;
+
+  /// The session runs the live conversation with an avatar (step 7).
+  bool get isLive => _protocolDef?.path == ProtocolPath.liveConversation;
   Profile? get profile => _profileData;
   GradualPracticeController? get gradual => _gradual;
   InterestPracticeController? get interest => _interest;
+  LivePracticeController? get live => _live;
 
   /// Captions are shown only for participants who asked for them.
   bool get showCaptions => _profileData?.accessibilityNeeds
@@ -204,11 +221,12 @@ class SessionFlowController extends SafeChangeNotifier {
     return 2;
   }
 
-  /// The practice or the interest post video is on the screen.
+  /// The practice, the interest post video or the live avatar's post
+  /// observation is on the screen.
   bool get practiceVisible =>
       _phase == StepPhase.running &&
       (_step == SessionStep.practice ||
-          (_step == SessionStep.post && isInterest));
+          (_step == SessionStep.post && (isInterest || isLive)));
 
   /// The comfort question at the end of a protocol session is shown.
   bool get askingComfort => _step == SessionStep.summary && _phase == StepPhase.comfort;
@@ -251,7 +269,7 @@ class SessionFlowController extends SafeChangeNotifier {
   /// progress bar, nothing to do.
   bool get _isObservationStep =>
       _step == SessionStep.baseline ||
-      (_step == SessionStep.post && !isInterest);
+      (_step == SessionStep.post && !isInterest && !isLive);
 
   bool get hasActiveSession =>
       _session != null &&
@@ -644,6 +662,20 @@ class SessionFlowController extends SafeChangeNotifier {
       i.startPost();
       return;
     }
+    if (isLive) {
+      final l = _live;
+      if (l == null) return;
+      _error = null;
+      _phase = StepPhase.running;
+      notifyListeners();
+      // After a device change the post observation goes on where it was.
+      if (l.phase == LivePhase.post) {
+        l.restartCurrent();
+      } else {
+        l.startPost(postDuration);
+      }
+      return;
+    }
     await _startObservation(SessionSegmentName.post, SessionStep.post);
   }
 
@@ -803,6 +835,39 @@ class SessionFlowController extends SafeChangeNotifier {
       unawaited(first ? g.startStage() : g.resumeAfterInterruption());
       return;
     }
+    if (protocol.path == ProtocolPath.liveConversation) {
+      var l = _live;
+      if (l != null) {
+        // After a device change the conversation goes on where it was.
+        _phase = StepPhase.running;
+        notifyListeners();
+        l.restartCurrent();
+        return;
+      }
+      final repo = _liveRepo;
+      final speech = _speech;
+      if (repo == null || speech == null) {
+        _error = 'The live conversation is not available here.';
+        notifyListeners();
+        return;
+      }
+      l = LivePracticeController(
+        sessionId: session.id,
+        repository: repo,
+        recorder: _recorder,
+        screen: () => _screen,
+        speech: speech,
+        audioRecorder: _audioRecorder,
+        closingFallback: _closingLine(protocol),
+        onFinished: _practiceFinished,
+        onPostFinished: _postFinished,
+      );
+      _live = l;
+      _phase = StepPhase.running;
+      notifyListeners();
+      unawaited(l.load());
+      return;
+    }
     // Interest conversation: fetch the personalized content first.
     var i = _interest;
     if (i != null) {
@@ -844,6 +909,14 @@ class SessionFlowController extends SafeChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// The protocol's closing line with the participant's name and topic, for
+  /// when the server's closing turn comes without its text.
+  String _closingLine(ProtocolDefinition protocol) => renderLiveLine(
+        protocol.live?.closingLine ?? LiveProtocolConfig.defaultClosingLine,
+        displayName: _profileData?.displayName,
+        topic: assignment?.topic ?? '',
+      );
 
   void _practiceFinished(PracticeEnd end) {
     if (isDisposed || _ended) return;
@@ -913,6 +986,7 @@ class SessionFlowController extends SafeChangeNotifier {
     _baselineWatch.stop();
     _gradual?.pause();
     _interest?.pause();
+    _live?.pause();
     await _stopPump();
     _phase = StepPhase.paused;
     _faceLost = false;
@@ -969,6 +1043,7 @@ class SessionFlowController extends SafeChangeNotifier {
       final g = _gradual;
       if (_step == SessionStep.practice && g != null) g.resume();
       _interest?.resume();
+      _live?.resume();
     } finally {
       _switching = false;
       notifyListeners();
@@ -984,6 +1059,7 @@ class SessionFlowController extends SafeChangeNotifier {
     _baselineWatch.stop();
     _gradual?.cancel();
     _interest?.cancel();
+    _live?.cancel();
     await _stopPump();
     if (wasStreaming) await _flushSamples();
     _openSegment = null;
@@ -1002,6 +1078,7 @@ class SessionFlowController extends SafeChangeNotifier {
     _baselineWatch.stop();
     _gradual?.interrupted();
     _interest?.interrupted();
+    _live?.interrupted();
     _phase = StepPhase.changed;
     _change = event;
     _faceLost = false;
@@ -1293,6 +1370,7 @@ class SessionFlowController extends SafeChangeNotifier {
     _gradual?.dispose();
     _interest?.cancel();
     _interest?.dispose();
+    _live?.dispose();
     unawaited(_frames.stop());
     super.dispose();
   }

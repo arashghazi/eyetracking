@@ -108,7 +108,7 @@ class _AiStatusCardState extends State<AiStatusCard> {
                     provider: s.videoProvider,
                   ),
                   const Divider(height: 20),
-                  _LabelRow(
+                  LabelRow(
                     label: 'Worker',
                     children: [
                       Text(
@@ -120,20 +120,20 @@ class _AiStatusCardState extends State<AiStatusCard> {
                     ],
                   ),
                   const Divider(height: 20),
-                  _LabelRow(
+                  LabelRow(
                     label: 'Budget',
                     children: [
-                      _Figure(
+                      FigureText(
                         keyName: 'budget-cap',
                         label: 'Cap',
                         value: formatUnits(s.budget.costCapUnits),
                       ),
-                      _Figure(
+                      FigureText(
                         keyName: 'budget-spent',
                         label: 'Spent',
                         value: formatUnits(s.budget.spentUnits),
                       ),
-                      _Figure(
+                      FigureText(
                         keyName: 'budget-remaining',
                         label: 'Remaining',
                         value: formatUnits(s.budget.remainingUnits),
@@ -150,7 +150,7 @@ class _AiStatusCardState extends State<AiStatusCard> {
                   ],
                   ..._capEditor(c),
                   const Divider(height: 20),
-                  _LabelRow(
+                  LabelRow(
                     label: 'Free text',
                     children: [
                       if (widget.isAdmin)
@@ -254,7 +254,7 @@ class _ProviderRow extends StatelessWidget {
     final name = provider.name.isEmpty ? 'unknown' : provider.name;
     return KeyedSubtree(
       key: Key(keyPrefix),
-      child: _LabelRow(
+      child: LabelRow(
         label: label,
         children: [
           Text(
@@ -278,52 +278,4 @@ class _ProviderRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LabelRow extends StatelessWidget {
-  const _LabelRow({required this.label, required this.children});
-
-  final String label;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-        spacing: 12,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label, style: Theme.of(context).textTheme.labelLarge),
-          ),
-          ...children,
-        ],
-      );
-}
-
-class _Figure extends StatelessWidget {
-  const _Figure({
-    required this.keyName,
-    required this.label,
-    required this.value,
-  });
-
-  final String keyName;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Text.rich(
-        key: Key(keyName),
-        TextSpan(children: [
-          TextSpan(
-            text: '$label ',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-          TextSpan(
-            text: value,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ]),
-      );
 }

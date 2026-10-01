@@ -168,10 +168,12 @@ def _open_conversation(uow: LiveUnitOfWork, principal: Principal, session_id: in
     return s, cfg, a, c
 
 
-def _finish(uow: LiveUnitOfWork, clock: Clock, c: LiveConversation, cfg: dict, name: str | None, t_ms: int | None, reason: str, extra_flags: list[str]) -> LiveTurn:
+def _finish(uow: LiveUnitOfWork, clock: Clock, c: LiveConversation, cfg: dict, name: str | None, t_ms: int | None, reason: str, extra_flags: list[str]) -> dict:
+    """Adds the closing line and closes. Returns the line's view taken before stored text is removed."""
     line = _add_turn(uow, c, "avatar", render_line(cfg["closing_line"], name, c.topic), t_ms, ["scripted_line", "closing", reason, *extra_flags])
+    view = _turn_view(line)
     _close(uow, clock, c, reason)
-    return line
+    return view
 
 
 def take_turn(
@@ -186,7 +188,7 @@ def take_turn(
     if elapsed_min >= cfg["max_minutes"]:
         line = _finish(uow, clock, c, cfg, name, t_ms, "time_limit", [])
         uow.commit()
-        return {"participant": None, "avatar": _turn_view(line), "turns_used": c.turns_used, "turns_left": 0, "done": True, "end_reason": c.end_reason, "distress": False}
+        return {"participant": None, "avatar": line, "turns_used": c.turns_used, "turns_left": 0, "done": True, "end_reason": c.end_reason, "distress": False}
     in_flags: list[str] = []
     if audio is not None:
         if c.input_mode != "speech":
@@ -219,7 +221,7 @@ def take_turn(
             line = _finish(uow, clock, c, cfg, name, t_ms, "budget", [])
             c.turns_used += 1
             uow.commit()
-            return {"participant": None, "avatar": _turn_view(line), "turns_used": c.turns_used, "turns_left": 0, "done": True, "end_reason": c.end_reason, "distress": False}
+            return {"participant": None, "avatar": line, "turns_used": c.turns_used, "turns_left": 0, "done": True, "end_reason": c.end_reason, "distress": False}
     history = [(t.role, t.text or "") for t in uow.live.turns(c.id or 0)] + [("participant", scrub_for_storage(ptext) or "")]
     free_text = a.topic_free_text if budget.send_free_text else None
     system = system_prompt(cfg, c.topic, name, interests, free_text)
@@ -252,16 +254,18 @@ def take_turn(
         reason = "turn_limit"
     if reason == "participant":
         avatar = _add_turn(uow, c, "avatar", g.text, t_ms, list(g.flags) + provider_flags + ["closing"], latency, cost)
-        _close(uow, clock, c, "participant")
     elif reason == "turn_limit":
         avatar = _add_turn(uow, c, "avatar", render_line(cfg["closing_line"], name, c.topic), t_ms, ["scripted_line", "closing", "turn_limit", *provider_flags], latency, cost)
-        _close(uow, clock, c, "turn_limit")
     else:
         avatar = _add_turn(uow, c, "avatar", g.text, t_ms, list(g.flags) + provider_flags, latency, cost)
+    # the participant hears and reads this reply now; stored text may be removed right after
+    part_view, avatar_view = _turn_view(part), _turn_view(avatar)
+    if reason in ("participant", "turn_limit"):
+        _close(uow, clock, c, reason)
     uow.commit()
     return {
-        "participant": _turn_view(part),
-        "avatar": _turn_view(avatar),
+        "participant": part_view,
+        "avatar": avatar_view,
         "turns_used": c.turns_used,
         "turns_left": max(0, cfg["max_turns"] - c.turns_used),
         "done": c.status is ConversationStatus.closed,
@@ -275,7 +279,7 @@ def end(uow: LiveUnitOfWork, clock: Clock, principal: Principal, session_id: int
     name, _ = _person(uow, s.participant_id)
     line = _finish(uow, clock, c, cfg, name, t_ms, "participant_ended", [])
     uow.commit()
-    return {"avatar": _turn_view(line), "turns_used": c.turns_used, "done": True, "end_reason": c.end_reason}
+    return {"avatar": line, "turns_used": c.turns_used, "done": True, "end_reason": c.end_reason}
 
 
 def my_conversation(uow: LiveUnitOfWork, principal: Principal, session_id: int) -> dict:

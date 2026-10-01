@@ -13,6 +13,7 @@ import 'features/demographics_form/domain/demographics_form_repository.dart';
 import 'features/exports/domain/exports_repository.dart';
 import 'features/information_sheet/domain/information_sheet_repository.dart';
 import 'features/invitations/domain/invitations_repository.dart';
+import 'features/live/domain/live_repository.dart';
 import 'features/measurement_settings/domain/measurement_settings_repository.dart';
 import 'features/members/domain/members_repository.dart';
 import 'features/participants/domain/participants_repository.dart';
@@ -46,6 +47,7 @@ class AppDependencies {
     required this.saveFile,
     required this.ai,
     required this.pilot,
+    required this.live,
     this.schedule,
   });
 
@@ -83,6 +85,9 @@ class AppDependencies {
 
   // Step 6: supervised pilot.
   final PilotRepository pilot;
+
+  // Step 7: live interactive avatar (staff reads).
+  final LiveRepository live;
 
   /// Creates the timers behind the AI tab's auto-refresh and the live
   /// monitor's polling; tests pass a fake so they can fire them by hand. Null

@@ -45,6 +45,9 @@ class _SessionFlowScreenState extends State<SessionFlowScreen> {
         assignment: widget.assignment,
         assignments: deps.assignments,
         profile: deps.profile,
+        live: deps.live,
+        speech: deps.speech,
+        audioRecorder: deps.audioRecorder,
       );
       _owns = true;
     }

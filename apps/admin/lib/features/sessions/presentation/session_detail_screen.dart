@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app_scope.dart';
 import '../../exports/application/download_controller.dart';
 import '../../exports/domain/exports_repository.dart';
+import '../../live/presentation/session_conversation_section.dart';
 import '../../pilot/presentation/observations_panel.dart';
 import '../../replay/presentation/replay_screen.dart';
 import '../application/sessions_controller.dart';
@@ -127,12 +128,21 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                   const SizedBox(height: 12),
                   _ImprovementLine(
                     improvement: detail.summary.outcomes!.improvement,
+                    live: detail.summary.protocol?.path ==
+                        ProtocolPath.liveConversation,
                   ),
                 ],
                 if (detail.summary.protocol != null) ...[
                   const SizedBox(height: 12),
                   _ProtocolSection(summary: detail.summary),
                 ],
+                // Only a session of the live path has one; the section is
+                // empty (and takes no room) for every other session.
+                SessionConversationSection(
+                  key: Key('session-conversation-${widget.sessionId}'),
+                  studyId: widget.studyId,
+                  sessionId: widget.sessionId,
+                ),
                 const SizedBox(height: 12),
                 _DeviceSection(detail: detail),
                 const SizedBox(height: 12),
@@ -516,9 +526,14 @@ class _MetricCard extends StatelessWidget {
 
 /// "All three criteria met", "Not met" or "Cannot be judged yet".
 class _ImprovementLine extends StatelessWidget {
-  const _ImprovementLine({required this.improvement});
+  const _ImprovementLine({required this.improvement, this.live = false});
 
   final ImprovementOutcome improvement;
+
+  /// A live conversation session: the third criterion is "the conversation
+  /// held" (two or more participant turns, on topic at least half the time,
+  /// as judged by the reply model).
+  final bool live;
 
   @override
   Widget build(BuildContext context) {
@@ -564,8 +579,12 @@ class _ImprovementLine extends StatelessWidget {
         const SizedBox(height: 8),
         _Row('Eye share went up', mark(improvement.eyeShareUp)),
         _Row('Comfort did not get worse', mark(improvement.comfortNotWorse)),
-        _Row('Comprehension or number task kept',
-            mark(improvement.comprehensionMaintained)),
+        _Row(
+          live
+              ? 'Conversation held (judged by the reply model)'
+              : 'Comprehension or number task kept',
+          mark(improvement.comprehensionMaintained),
+        ),
       ],
     );
   }

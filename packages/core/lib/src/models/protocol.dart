@@ -2,16 +2,19 @@
 /// session runs, and the list rows the Research Admin shows.
 library;
 
+import 'live.dart';
+
 double _d(Object? v, double fallback) => (v as num?)?.toDouble() ?? fallback;
 int _i(Object? v, int fallback) => (v as num?)?.toInt() ?? fallback;
 bool _b(Object? v, bool fallback) => v is bool ? v : fallback;
 List<String> _strings(Object? v) =>
     [for (final e in (v as List<dynamic>? ?? const [])) e.toString()];
 
-/// The two practice paths.
+/// The practice paths.
 enum ProtocolPath {
   gradualFace('gradual_face', 'Gradual face practice'),
-  interestConversation('interest_conversation', 'Interest conversation');
+  interestConversation('interest_conversation', 'Interest conversation'),
+  liveConversation('live_conversation', 'Live conversation with an avatar');
 
   const ProtocolPath(this.wire, this.label);
   final String wire;
@@ -281,6 +284,7 @@ class ProtocolDefinition {
     this.progression = const ProgressionRules(),
     this.gradual,
     this.interest,
+    this.live,
   });
 
   final ProtocolPath path;
@@ -295,6 +299,9 @@ class ProtocolDefinition {
   /// Present for [ProtocolPath.interestConversation].
   final InterestConfig? interest;
 
+  /// Present for [ProtocolPath.liveConversation].
+  final LiveProtocolConfig? live;
+
   /// A sensible starting point for a new draft of [path].
   factory ProtocolDefinition.starter(ProtocolPath path) => ProtocolDefinition(
         path: path,
@@ -306,6 +313,9 @@ class ProtocolDefinition {
             : null,
         interest:
             path == ProtocolPath.interestConversation ? const InterestConfig() : null,
+        live: path == ProtocolPath.liveConversation
+            ? const LiveProtocolConfig()
+            : null,
       );
 
   static ProtocolDefinition? maybeFromJson(Object? value) {
@@ -324,6 +334,9 @@ class ProtocolDefinition {
       interest: value['interest'] == null
           ? null
           : InterestConfig.fromJson(value['interest']),
+      live: value['live'] == null
+          ? null
+          : LiveProtocolConfig.fromJson(value['live']),
     );
   }
 
@@ -341,6 +354,8 @@ class ProtocolDefinition {
           'gradual': gradual!.toJson(),
         if (path == ProtocolPath.interestConversation && interest != null)
           'interest': interest!.toJson(),
+        if (path == ProtocolPath.liveConversation && live != null)
+          'live': live!.toJson(),
       };
 }
 

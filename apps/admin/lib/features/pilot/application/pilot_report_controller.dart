@@ -1,6 +1,8 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
 
 import '../../exports/application/download_controller.dart';
+import '../../live/domain/live_models.dart';
+import '../domain/pilot_readings.dart';
 import '../domain/pilot_repository.dart';
 
 /// The Report section: the pilot summary of the study and its CSV. Synthetic
@@ -14,12 +16,16 @@ class PilotReportController extends SafeChangeNotifier {
   /// Hands the CSV to the browser.
   final DownloadController downloads;
 
-  PilotReport? _report;
+  PilotReportData? _data;
   bool _includeSynthetic = false;
   bool _loading = false;
   String? _error;
 
-  PilotReport? get report => _report;
+  PilotReport? get report => _data?.report;
+
+  /// The conversation columns of one report row.
+  ConversationReportColumns conversationColumns(String sessionId) =>
+      _data?.columnsFor(sessionId) ?? const ConversationReportColumns();
   bool get includeSynthetic => _includeSynthetic;
   bool get loading => _loading;
   String? get error => _error;
@@ -33,9 +39,9 @@ class PilotReportController extends SafeChangeNotifier {
     notifyListeners();
     final wanted = _includeSynthetic;
     try {
-      final report = await _repository.report(studyId, includeSynthetic: wanted);
+      final data = await _repository.report(studyId, includeSynthetic: wanted);
       // A switch flipped while this ran has started its own read.
-      if (wanted == _includeSynthetic) _report = report;
+      if (wanted == _includeSynthetic) _data = data;
     } catch (e) {
       _error = userMessage(e);
     } finally {

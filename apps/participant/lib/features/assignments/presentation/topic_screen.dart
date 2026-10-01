@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../app_scope.dart';
 import '../application/topic_controller.dart';
 
-/// "Confirm my topic": the short English interview of the interest path.
+/// "Confirm my topic": the short English interview of the interest path and
+/// of the live conversation.
 class TopicScreen extends StatefulWidget {
   const TopicScreen({super.key, required this.assignment, this.controller});
 
@@ -70,8 +71,13 @@ class _TopicScreenState extends State<TopicScreen> {
                 ? MessageBanner(message: c.error!, onDismiss: c.dismissError)
                 : null,
             children: [
-              if (c.submitted) _Submitted(onHome: () => Navigator.of(context).pop())
-              else ..._form(context, c),
+              if (c.submitted)
+                _Submitted(
+                  ready: c.readyToStart,
+                  onHome: () => Navigator.of(context).pop(),
+                )
+              else
+                ..._form(context, c),
             ],
           );
         },
@@ -93,8 +99,13 @@ class _TopicScreenState extends State<TopicScreen> {
                   style: theme.textTheme.titleMedium),
               const SizedBox(height: 4),
               Text(
-                'Your researcher prepares a short conversation about it. '
-                'Pick one of your interests or type your own topic.',
+                widget.assignment.isLive
+                    ? 'You will have a short chat about it with a virtual '
+                        'avatar. Pick one of your interests or type your own '
+                        'topic.'
+                    : 'Your researcher prepares a short conversation about '
+                        'it. Pick one of your interests or type your own '
+                        'topic.',
                 style: theme.textTheme.bodyMedium?.copyWith(color: muted),
               ),
               const SizedBox(height: 12),
@@ -164,9 +175,12 @@ class _TopicScreenState extends State<TopicScreen> {
 }
 
 class _Submitted extends StatelessWidget {
-  const _Submitted({required this.onHome});
+  const _Submitted({required this.onHome, this.ready = false});
 
   final VoidCallback onHome;
+
+  /// Nothing is prepared for this topic: the session can start right away.
+  final bool ready;
 
   @override
   Widget build(BuildContext context) {
@@ -189,17 +203,31 @@ class _Submitted extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              'Content being prepared by your researcher',
-              key: const Key('content-pending-note'),
-              style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'It will appear on your home screen when it is ready.',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
+            if (ready) ...[
+              Text(
+                'Your conversation is ready.',
+                key: const Key('topic-ready-note'),
+                style: theme.textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'You can start it from your home screen whenever you like.',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ] else ...[
+              Text(
+                'Content being prepared by your researcher',
+                key: const Key('content-pending-note'),
+                style: theme.textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'It will appear on your home screen when it is ready.',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton(
               key: const Key('topic-home'),

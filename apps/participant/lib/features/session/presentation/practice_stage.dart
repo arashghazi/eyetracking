@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../application/session_flow_controller.dart';
 import 'gradual_practice_view.dart';
 import 'interest_practice_view.dart';
+import 'live_practice_view.dart';
 
 /// The running practice (or the interest post video): dispatches to the view
 /// of the path the protocol runs.
@@ -14,6 +15,10 @@ class PracticeStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
+    final live = c.live;
+    if (c.isLive && live != null) {
+      return LivePracticeView(flow: c, controller: live);
+    }
     final interest = c.interest;
     if (c.isInterest && interest != null) {
       return InterestPracticeView(flow: c, controller: interest);

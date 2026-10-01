@@ -119,6 +119,8 @@ class _FakeVideoStageState extends State<FakeVideoStage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.config.onPlaying?.call();
     });
+    // A looping video never ends.
+    if (widget.config.loop) return;
     _timer = Timer(widget.duration, () {
       if (mounted) widget.config.onEnded?.call();
     });

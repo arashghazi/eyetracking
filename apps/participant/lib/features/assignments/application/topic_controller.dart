@@ -23,6 +23,7 @@ class TopicController extends SafeChangeNotifier {
   bool _loading = false;
   bool _submitting = false;
   bool _submitted = false;
+  Assignment? _result;
   String? _error;
 
   /// Interests from the profile, offered as chips.
@@ -32,8 +33,16 @@ class TopicController extends SafeChangeNotifier {
   bool get loading => _loading;
   bool get submitting => _submitting;
 
-  /// True once the server accepted the topic: the content is now prepared.
+  /// True once the server accepted the topic.
   bool get submitted => _submitted;
+
+  /// The assignment as the server returned it after the topic was saved.
+  Assignment? get result => _result;
+
+  /// The topic is saved and nothing has to be prepared: a live conversation
+  /// is ready to start, while an interest conversation waits for its
+  /// content.
+  bool get readyToStart => _result?.status == AssignmentStatus.ready;
   String? get error => _error;
   bool get canSubmit => _topic.trim().isNotEmpty && !_submitting && !_submitted;
 
@@ -86,7 +95,7 @@ class TopicController extends SafeChangeNotifier {
     notifyListeners();
     try {
       final note = _freeText.trim();
-      await _assignments.submitTopic(
+      _result = await _assignments.submitTopic(
         assignment.id,
         topic: _topic.trim(),
         freeText: note.isEmpty ? null : note,

@@ -16,6 +16,7 @@ import 'package:participant_app/features/home/domain/participant_overview.dart';
 import 'package:participant_app/features/profile/domain/profile_repository.dart';
 
 import 'debrief_kit.dart';
+import 'live_kit.dart';
 import 'session_kit.dart';
 
 class FakeAuthRepository implements AuthRepository {
@@ -290,7 +291,8 @@ class FakeAssignmentsRepository implements AssignmentsRepository {
     final next = Assignment(
       id: old.id,
       orderIndex: old.orderIndex,
-      status: AssignmentStatus.contentPending,
+      // A live conversation needs no prepared content.
+      status: old.isLive ? AssignmentStatus.ready : AssignmentStatus.contentPending,
       protocol: old.protocol,
       topic: topic,
       topicFreeText: freeText,
@@ -320,8 +322,14 @@ class TestBed {
     FakeDataExportRepository? dataExport,
     FakeEraseRepository? erase,
     FakeDebriefRepository? debrief,
+    FakeLiveRepository? live,
+    FakeSpeechSynthesizer? speech,
+    FakeAudioRecorder? microphone,
     bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
+        live = live ?? FakeLiveRepository(),
+        speech = speech ?? FakeSpeechSynthesizer(),
+        microphone = microphone ?? FakeAudioRecorder(),
         erase = erase ?? FakeEraseRepository(),
         debrief = debrief ?? FakeDebriefRepository(),
         saver = RecordingFileSaver(succeeds: canSaveFiles),
@@ -347,6 +355,11 @@ class TestBed {
   final FakeDataExportRepository dataExport;
   final FakeEraseRepository erase;
   final FakeDebriefRepository debrief;
+  final FakeLiveRepository live;
+  final FakeSpeechSynthesizer speech;
+
+  /// The recorder every `audioRecorder()` call hands out.
+  final FakeAudioRecorder microphone;
 
   /// What the downloads handed to the browser.
   final RecordingFileSaver saver;
@@ -372,5 +385,8 @@ class TestBed {
         erase: erase,
         debrief: debrief,
         saveFile: saver.call,
+        live: live,
+        speech: speech,
+        audioRecorder: () => microphone,
       );
 }

@@ -5,6 +5,7 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:eyetracking_core/testing.dart';
 import 'package:participant_app/features/assignments/domain/assignments_repository.dart';
 import 'package:participant_app/features/profile/domain/profile_repository.dart';
+import 'package:participant_app/features/session/domain/live_repository.dart';
 import 'package:participant_app/features/session/application/session_flow_controller.dart';
 import 'package:participant_app/features/session/domain/session_repository.dart';
 import 'package:participant_app/features/session/domain/session_step.dart';
@@ -294,6 +295,9 @@ class Rig {
     Assignment? assignment,
     AssignmentsRepository? assignments,
     ProfileRepository? profile,
+    LiveRepository? live,
+    SpeechSynthesizer? speech,
+    AudioRecorderFactory? audioRecorder,
     int? seed,
   })  : repo = FakeSessionRepository(),
         gaze = FakeGazeEstimator(),
@@ -307,6 +311,9 @@ class Rig {
       assignment: assignment,
       assignments: assignments,
       profile: profile,
+      live: live,
+      speech: speech,
+      audioRecorder: audioRecorder,
       random: seed == null ? null : math.Random(seed),
     )..updateScreen(screen);
   }

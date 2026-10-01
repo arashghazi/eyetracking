@@ -1,6 +1,7 @@
 import 'package:eyetracking_core/eyetracking_core.dart';
 
 import '../domain/protocols_repository.dart';
+import 'live_settings_draft.dart';
 
 /// One stage row of the stage table, as text the researcher edits.
 class StageDraft {
@@ -51,7 +52,9 @@ String _num(num v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
 ///
 /// Numbers are kept as the text that was typed; a value that is not a number
 /// is reported here, every other rule is checked by the server and its
-/// message is shown exactly as it arrives.
+/// message is shown exactly as it arrives. The live section is the exception:
+/// its ranges and text rules are also checked here ([liveErrors]) so a
+/// mistake shows next to its field before anything is sent.
 class ProtocolEditorController extends SafeChangeNotifier {
   ProtocolEditorController(
     this._repository,
@@ -107,6 +110,9 @@ class ProtocolEditorController extends SafeChangeNotifier {
 
   String interactionPoints = '2';
 
+  /// The live section; kept while another path is chosen.
+  LiveSettingsDraft live = LiveSettingsDraft();
+
   /// Bumped when the fields are replaced from the server, so the text boxes
   /// show the new values.
   int revision = 0;
@@ -157,6 +163,7 @@ class ProtocolEditorController extends SafeChangeNotifier {
     allowSimultaneous = def.gradual?.allowSimultaneousChange ?? false;
     realFaceUrl = def.gradual?.realFaceMediaUrl ?? '';
     interactionPoints = '${def.interest?.interactionPoints ?? 2}';
+    live = LiveSettingsDraft(config: def.live ?? const LiveProtocolConfig());
     _dirty = false;
     revision++;
   }
@@ -202,6 +209,13 @@ class ProtocolEditorController extends SafeChangeNotifier {
 
   void removeStage(int uid) => edit(() => _stages.removeWhere((s) => s.uid == uid));
 
+  /// Problems of the live section, by field key (empty for another path).
+  Map<String, String> get liveErrors =>
+      path == ProtocolPath.liveConversation ? live.errors() : const {};
+
+  /// Switches the face layout on or off.
+  void setUseFaceLayout(bool value) => edit(() => live.useFaceLayout = value);
+
   // ------------------------------------------------------------ building
 
   double? _double(String label, String text) {
@@ -235,7 +249,17 @@ class ProtocolEditorController extends SafeChangeNotifier {
 
     GradualConfig? gradual;
     InterestConfig? interest;
-    if (path == ProtocolPath.gradualFace) {
+    LiveProtocolConfig? liveConfig;
+    if (path == ProtocolPath.liveConversation) {
+      // The ranges and text rules are checked here as well, so a mistake
+      // shows next to its field; the server still has the last word.
+      final errors = live.errors();
+      if (errors.isNotEmpty) {
+        _error = errors.values.first;
+        return null;
+      }
+      liveConfig = live.build();
+    } else if (path == ProtocolPath.gradualFace) {
       final stages = <GradualStage>[];
       for (var i = 0; i < _stages.length; i++) {
         final s = _stages[i];
@@ -283,6 +307,7 @@ class ProtocolEditorController extends SafeChangeNotifier {
       ),
       gradual: gradual,
       interest: interest,
+      live: liveConfig,
     );
   }
 

@@ -9,6 +9,7 @@ import 'features/demographics/domain/demographics_repository.dart';
 import 'features/erase/domain/erase_repository.dart';
 import 'features/home/domain/home_repository.dart';
 import 'features/profile/domain/profile_repository.dart';
+import 'features/session/domain/live_repository.dart';
 import 'features/session/domain/session_repository.dart';
 
 /// Everything the screens need, expressed as ports so tests can pass fakes.
@@ -29,6 +30,9 @@ class AppDependencies {
     required this.erase,
     required this.debrief,
     required this.saveFile,
+    required this.live,
+    required this.speech,
+    required this.audioRecorder,
     this.initialInvitationToken = '',
   });
 
@@ -56,6 +60,16 @@ class AppDependencies {
 
   /// Hands a downloaded file to the browser (a recording fake in tests).
   final FileSaver saveFile;
+
+  /// Step 7: the live conversation's endpoints.
+  final LiveRepository live;
+
+  /// Step 7: the avatar's voice (the browser's own; silent in tests).
+  final SpeechSynthesizer speech;
+
+  /// Step 7: makes the push-to-talk microphone recorder when it is first
+  /// needed.
+  final AudioRecorderFactory audioRecorder;
 
   /// Invitation code taken from the page address, if any.
   final String initialInvitationToken;

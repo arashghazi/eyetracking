@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:eyetracking_core/eyetracking_core.dart';
 
+import '../../live/domain/live_models.dart';
 import '../domain/pilot_repository.dart';
 
 /// The Live section: the sessions that are running now and, for the one the
@@ -32,6 +33,7 @@ class LiveMonitorController extends SafeChangeNotifier {
 
   String? _selectedId;
   LiveStatus? _live;
+  ConversationMonitor? _conversation;
   String? _liveError;
   bool _needsFirst = true;
   bool _monitoring = false;
@@ -55,6 +57,9 @@ class LiveMonitorController extends SafeChangeNotifier {
   }
 
   LiveStatus? get live => _live;
+
+  /// The state of the session's live conversation, or null when it has none.
+  ConversationMonitor? get conversation => _conversation;
   String? get liveError => _liveError;
 
   /// A read is scheduled or running: the panel is being kept up to date.
@@ -85,6 +90,7 @@ class LiveMonitorController extends SafeChangeNotifier {
     final generation = ++_generation;
     _selectedId = sessionId;
     _live = null;
+    _conversation = null;
     _liveError = null;
     _needsFirst = true;
     _monitoring = true;
@@ -99,6 +105,7 @@ class LiveMonitorController extends SafeChangeNotifier {
     _generation++;
     _selectedId = null;
     _live = null;
+    _conversation = null;
     _liveError = null;
     _monitoring = false;
     _fetching = false;
@@ -127,10 +134,12 @@ class LiveMonitorController extends SafeChangeNotifier {
     if (id == null || generation != _generation || isDisposed) return;
     _fetching = true;
     try {
-      final status = await _repository.live(studyId, id, first: _needsFirst);
+      final reading = await _repository.live(studyId, id, first: _needsFirst);
       if (generation != _generation) return;
+      final status = reading.status;
       _needsFirst = false;
       _live = status;
+      _conversation = reading.conversation;
       _liveError = null;
       if (status.isEnded) _monitoring = false;
     } catch (e) {

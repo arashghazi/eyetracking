@@ -113,8 +113,14 @@ class StimulusStepBody extends StatelessWidget {
       );
 
   Widget _practicePanel(SessionFlowController c) {
-    final again = c.gradual != null || c.interest != null;
-    final text = c.isInterest
+    final again = c.gradual != null || c.interest != null || c.live != null;
+    final text = c.isLive
+        ? 'You will have a short chat with a virtual avatar'
+            '${c.assignment?.topic == null ? '' : ' about ${c.assignment!.topic}'}. '
+            'You can type, or speak if you prefer. The avatar only talks '
+            'about that topic. Nothing here is a test, and you can pause or '
+            'stop at any time.'
+        : c.isInterest
         ? 'You will watch a short video conversation'
             '${c.assignment?.topic == null ? '' : ' about ${c.assignment!.topic}'}. '
             'At the end of a part you may be asked to choose an answer. '
@@ -136,7 +142,10 @@ class StimulusStepBody extends StatelessWidget {
 
   Widget _postPanel(SessionFlowController c) => _Instructions(
         title: 'Post observation',
-        text: c.isInterest
+        text: c.isLive
+            ? 'You will see the avatar one more time. Just look at it '
+                'naturally. There is nothing to do and nothing will be asked.'
+            : c.isInterest
             ? 'You will watch one more short video. Just watch it naturally. '
                 'There is nothing to do and nothing will be asked.'
             : 'You will see the picture for '

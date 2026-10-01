@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:eyetracking_core/eyetracking_core.dart';
 
+import '../../live/domain/live_models.dart';
+import '../domain/pilot_readings.dart';
 import '../domain/pilot_repository.dart';
 
 class ApiPilotRepository implements PilotRepository {
@@ -59,14 +61,18 @@ class ApiPilotRepository implements PilotRepository {
       );
 
   @override
-  Future<LiveStatus> live(
+  Future<LiveReading> live(
     int studyId,
     String sessionId, {
     bool first = false,
-  }) async =>
-      LiveStatus.fromJson(
-        await _api.getObject('${_session(studyId, sessionId)}/live?first=$first'),
-      );
+  }) async {
+    final json = await _api
+        .getObject('${_session(studyId, sessionId)}/live?first=$first');
+    return LiveReading(
+      LiveStatus.fromJson(json),
+      conversation: ConversationMonitor.maybeFromJson(json['conversation']),
+    );
+  }
 
   @override
   Future<DebriefForm> debriefForm(int studyId) async => DebriefForm.fromJson(
@@ -138,12 +144,22 @@ class ApiPilotRepository implements PilotRepository {
       );
 
   @override
-  Future<PilotReport> report(int studyId, {bool includeSynthetic = false}) async =>
-      PilotReport.fromJson(
-        await _api.getObject(
-          '${_study(studyId)}/pilot/report?include_synthetic=$includeSynthetic',
-        ),
-      );
+  Future<PilotReportData> report(
+    int studyId, {
+    bool includeSynthetic = false,
+  }) async {
+    final json = await _api.getObject(
+      '${_study(studyId)}/pilot/report?include_synthetic=$includeSynthetic',
+    );
+    return PilotReportData(
+      PilotReport.fromJson(json),
+      conversation: {
+        for (final row in (json['rows'] as List<dynamic>? ?? const []))
+          if (row is Map<String, dynamic>)
+            '${row['session_id']}': ConversationReportColumns.fromRow(row),
+      },
+    );
+  }
 
   @override
   Future<Uint8List> reportCsv(int studyId, {bool includeSynthetic = false}) =>

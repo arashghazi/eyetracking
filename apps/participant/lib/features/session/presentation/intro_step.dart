@@ -64,7 +64,9 @@ class IntroStep extends StatelessWidget {
                   if (c.hasProtocol) ...[
                     _Bullet(
                       'Practice',
-                      c.assignment!.isInterest
+                      c.assignment!.isLive
+                          ? 'You have a short chat with a virtual avatar, typing or speaking.'
+                          : c.assignment!.isInterest
                           ? 'You watch a short video conversation and answer a few questions.'
                           : 'You see a face with a number near it and tell us the number. '
                               'It is not a test.',

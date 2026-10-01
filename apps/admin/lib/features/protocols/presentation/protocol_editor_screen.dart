@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
 import '../application/protocol_editor_controller.dart';
+import 'editor_widgets.dart';
+import 'live_settings_section.dart';
 
 /// Editor of one protocol. Pass [initial] to edit a protocol that is already
 /// loaded, [protocolId] to load it, or neither to start a new draft.
@@ -132,7 +134,6 @@ class _Editor extends StatelessWidget {
     final c = controller;
     final theme = Theme.of(context);
     final ro = c.readOnly;
-    final gradual = c.path == ProtocolPath.gradualFace;
     return PageFrame(
       maxWidth: 960,
       buildAll: true,
@@ -178,8 +179,8 @@ class _Editor extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        _Section(title: 'Basics', children: [
-          _Text(
+        EditorSection(title: 'Basics', children: [
+          EditorText(
             keyName: 'protocol-name',
             label: 'Name',
             revision: c.revision,
@@ -188,7 +189,7 @@ class _Editor extends StatelessWidget {
             onChanged: (v) => c.edit(() => c.name = v),
           ),
           const SizedBox(height: 12),
-          _Drop<ProtocolPath>(
+          EditorDrop<ProtocolPath>(
             keyName: 'protocol-path',
             label: 'Path',
             revision: c.revision,
@@ -199,9 +200,9 @@ class _Editor extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 12),
-        _Section(title: 'Timing', children: [
+        EditorSection(title: 'Timing', children: [
           Wrap(spacing: 12, runSpacing: 12, children: [
-            _Text(
+            EditorText(
               keyName: 'baseline-seconds',
               label: 'Baseline seconds',
               revision: c.revision,
@@ -211,7 +212,7 @@ class _Editor extends StatelessWidget {
               number: true,
               onChanged: (v) => c.edit(() => c.baselineSeconds = v),
             ),
-            _Text(
+            EditorText(
               keyName: 'post-seconds',
               label: 'Post seconds',
               revision: c.revision,
@@ -224,9 +225,9 @@ class _Editor extends StatelessWidget {
           ]),
         ]),
         const SizedBox(height: 12),
-        _Section(title: 'Comfort scale', children: [
+        EditorSection(title: 'Comfort scale', children: [
           Wrap(spacing: 12, runSpacing: 12, children: [
-            _Drop<int>(
+            EditorDrop<int>(
               keyName: 'scale-max',
               label: 'Number of values',
               revision: c.revision,
@@ -236,7 +237,7 @@ class _Editor extends StatelessWidget {
               items: {for (var v = 3; v <= 7; v++) v: '$v'},
               onChanged: c.setScaleMax,
             ),
-            _Drop<int>(
+            EditorDrop<int>(
               keyName: 'min-ok',
               label: 'Lowest comfortable value',
               revision: c.revision * 100 + c.scaleMax,
@@ -249,7 +250,7 @@ class _Editor extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           for (var i = 0; i < c.scaleMax; i++) ...[
-            _Text(
+            EditorText(
               keyName: 'label-${i + 1}',
               label: 'Label for ${i + 1}',
               revision: c.revision * 100 + c.scaleMax,
@@ -259,7 +260,7 @@ class _Editor extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
-          _Switch(
+          EditorSwitch(
             keyName: 'ask-every-stage',
             title: 'Ask the comfort question after every stage',
             value: c.askEveryStage,
@@ -268,8 +269,8 @@ class _Editor extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 12),
-        _Section(title: 'Progression', children: [
-          _Text(
+        EditorSection(title: 'Progression', children: [
+          EditorText(
             keyName: 'hold-invalid',
             label: 'Repeat a stage when more than this share of samples is unusable',
             revision: c.revision,
@@ -280,14 +281,14 @@ class _Editor extends StatelessWidget {
             onChanged: (v) => c.edit(() => c.holdInvalid = v),
           ),
           const SizedBox(height: 8),
-          _Switch(
+          EditorSwitch(
             keyName: 'easier-on-low',
             title: 'Go back one stage when comfort is below the lowest comfortable value',
             value: c.easierOnLowComfort,
             enabled: !ro,
             onChanged: (v) => c.edit(() => c.easierOnLowComfort = v),
           ),
-          _Switch(
+          EditorSwitch(
             keyName: 'stop-on-two-low',
             title: 'Stop after two low comfort answers in a row',
             value: c.stopOnTwoLow,
@@ -296,7 +297,11 @@ class _Editor extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 12),
-        if (gradual) _GradualSection(controller: c) else _InterestSection(controller: c),
+        switch (c.path) {
+          ProtocolPath.gradualFace => _GradualSection(controller: c),
+          ProtocolPath.interestConversation => _InterestSection(controller: c),
+          ProtocolPath.liveConversation => LiveSettingsSection(controller: c),
+        },
         const SizedBox(height: 16),
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (!ro) ...[
@@ -365,7 +370,7 @@ class _GradualSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = controller;
     final ro = c.readOnly;
-    return _Section(title: 'Stages (gradual face)', children: [
+    return EditorSection(title: 'Stages (gradual face)', children: [
       for (var i = 0; i < c.stages.length; i++) ...[
         _StageRow(controller: c, index: i, stage: c.stages[i]),
         const SizedBox(height: 8),
@@ -382,7 +387,7 @@ class _GradualSection extends StatelessWidget {
         ),
       const SizedBox(height: 12),
       Wrap(spacing: 12, runSpacing: 12, children: [
-        _Drop<NumberZone>(
+        EditorDrop<NumberZone>(
           keyName: 'final-zone-limit',
           label: 'Furthest zone a number may reach',
           revision: c.revision,
@@ -394,7 +399,7 @@ class _GradualSection extends StatelessWidget {
         ),
       ]),
       const SizedBox(height: 8),
-      _Switch(
+      EditorSwitch(
         keyName: 'allow-simultaneous',
         title: 'Allow the face and the number zone to change in the same stage',
         value: c.allowSimultaneous,
@@ -402,7 +407,7 @@ class _GradualSection extends StatelessWidget {
         onChanged: (v) => c.edit(() => c.allowSimultaneous = v),
       ),
       const SizedBox(height: 8),
-      _Text(
+      EditorText(
         keyName: 'real-face-url',
         label: 'Real face image URL (face level 3, optional)',
         revision: c.revision,
@@ -460,7 +465,7 @@ class _StageRow extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Wrap(spacing: 12, runSpacing: 12, children: [
-            _Drop<int>(
+            EditorDrop<int>(
               keyName: '$k-level',
               label: 'Face level',
               revision: rev,
@@ -470,7 +475,7 @@ class _StageRow extends StatelessWidget {
               items: _GradualSection._levels,
               onChanged: (v) => c.edit(() => stage.faceLevel = v),
             ),
-            _Drop<NumberZone>(
+            EditorDrop<NumberZone>(
               keyName: '$k-zone',
               label: 'Number zone',
               revision: rev,
@@ -480,7 +485,7 @@ class _StageRow extends StatelessWidget {
               items: {for (final z in NumberZone.values) z: z.label},
               onChanged: (v) => c.edit(() => stage.zone = v),
             ),
-            _Text(
+            EditorText(
               keyName: '$k-trials',
               label: 'Trials',
               revision: rev,
@@ -490,7 +495,7 @@ class _StageRow extends StatelessWidget {
               number: true,
               onChanged: (v) => c.edit(() => stage.trials = v),
             ),
-            _Text(
+            EditorText(
               keyName: '$k-min-correct',
               label: 'Min correct (0-1)',
               revision: rev,
@@ -500,7 +505,7 @@ class _StageRow extends StatelessWidget {
               number: true,
               onChanged: (v) => c.edit(() => stage.minCorrect = v),
             ),
-            _Drop<StageResponseMode>(
+            EditorDrop<StageResponseMode>(
               keyName: '$k-mode',
               label: 'Response mode',
               revision: rev,
@@ -510,7 +515,7 @@ class _StageRow extends StatelessWidget {
               items: {for (final m in StageResponseMode.values) m: m.label},
               onChanged: (v) => c.edit(() => stage.mode = v),
             ),
-            _Text(
+            EditorText(
               keyName: '$k-seconds',
               label: 'Seconds per number',
               revision: rev,
@@ -535,8 +540,8 @@ class _InterestSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
-    return _Section(title: 'Interest conversation', children: [
-      _Text(
+    return EditorSection(title: 'Interest conversation', children: [
+      EditorText(
         keyName: 'interaction-points',
         label: 'Interaction points',
         revision: c.revision,
@@ -557,135 +562,4 @@ class _InterestSection extends StatelessWidget {
       ),
     ]);
   }
-}
-
-// ------------------------------------------------------------- building blocks
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              ...children,
-            ],
-          ),
-        ),
-      );
-}
-
-/// A text box that starts from [value] and starts over when [revision] changes.
-class _Text extends StatelessWidget {
-  const _Text({
-    required this.keyName,
-    required this.label,
-    required this.revision,
-    required this.value,
-    required this.onChanged,
-    this.enabled = true,
-    this.width,
-    this.number = false,
-  });
-
-  final String keyName;
-  final String label;
-  final int revision;
-  final String value;
-  final ValueChanged<String> onChanged;
-  final bool enabled;
-  final double? width;
-  final bool number;
-
-  @override
-  Widget build(BuildContext context) {
-    final field = KeyedSubtree(
-      key: ValueKey('$keyName-$revision'),
-      child: TextFormField(
-        key: Key(keyName),
-        initialValue: value,
-        enabled: enabled,
-        keyboardType: number
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.text,
-        decoration: InputDecoration(labelText: label),
-        onChanged: onChanged,
-      ),
-    );
-    return width == null ? field : SizedBox(width: width, child: field);
-  }
-}
-
-class _Drop<T> extends StatelessWidget {
-  const _Drop({
-    required this.keyName,
-    required this.label,
-    required this.revision,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    this.enabled = true,
-    this.width,
-  });
-
-  final String keyName;
-  final String label;
-  final int revision;
-  final T value;
-  final Map<T, String> items;
-  final ValueChanged<T> onChanged;
-  final bool enabled;
-  final double? width;
-
-  @override
-  Widget build(BuildContext context) {
-    final field = KeyedSubtree(
-      key: ValueKey('$keyName-$revision'),
-      child: DropdownButtonFormField<T>(
-        key: Key(keyName),
-        initialValue: items.containsKey(value) ? value : null,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label),
-        items: [
-          for (final e in items.entries)
-            DropdownMenuItem<T>(value: e.key, child: Text(e.value)),
-        ],
-        onChanged: enabled ? (v) => v == null ? null : onChanged(v) : null,
-      ),
-    );
-    return width == null ? field : SizedBox(width: width, child: field);
-  }
-}
-
-class _Switch extends StatelessWidget {
-  const _Switch({
-    required this.keyName,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    this.enabled = true,
-  });
-
-  final String keyName;
-  final String title;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => SwitchListTile(
-        key: Key(keyName),
-        contentPadding: EdgeInsets.zero,
-        title: Text(title),
-        value: value,
-        onChanged: enabled ? onChanged : null,
-      );
 }

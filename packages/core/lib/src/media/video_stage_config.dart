@@ -16,6 +16,8 @@ class VideoStageConfig {
     this.onPlaying,
     this.controller,
     this.autoplay = true,
+    this.loop = false,
+    this.muted = false,
   });
 
   /// Signed media URL, used exactly as the server gave it.
@@ -41,6 +43,13 @@ class VideoStageConfig {
   /// Start playing as soon as the video loads. The participant's clips do;
   /// the replay waits for its play button.
   final bool autoplay;
+
+  /// Play again from the start when the video ends, so [onEnded] never
+  /// fires (the live avatar's sample face).
+  final bool loop;
+
+  /// Play without sound. Browsers start a muted video without a tap.
+  final bool muted;
 }
 
 /// Builds the widget that plays one video segment.

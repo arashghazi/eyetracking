@@ -2,7 +2,7 @@
 
 Used by scripts/run-local.ps1 on the first run. Never point it at a server with real participants.
 It creates: a researcher, a study with an information sheet and a demographics form, one ready demo
-participant with both practice paths assigned, approved sample content (the development sample face,
+participant with the gradual, interest and live conversation paths assigned, approved sample content (the development sample face,
 not a real speaker), and a second, unused invitation link for trying the sign-up flow yourself.
 Prints one JSON object. Exits without changes when the demo study already exists.
 """
@@ -45,6 +45,15 @@ INTEREST = {
     "comfort": {"scale_max": 5, "labels": COMFORT_LABELS, "min_ok": 3, "ask_every_stage": False},
     "progression": PROGRESSION,
     "interest": {"interaction_points": 1},
+}
+LIVE = {
+    "path": "live_conversation",
+    "baseline_seconds": 20,
+    "post_seconds": 20,
+    "comfort": {"scale_max": 5, "labels": COMFORT_LABELS, "min_ok": 3, "ask_every_stage": False},
+    "progression": PROGRESSION,
+    "live": {"max_turns": 6, "max_minutes": 6, "max_reply_words": 40, "max_participant_chars": 400, "input_modes": ["typed", "speech"], "store_transcript": False,
+             "face_layout": {"face_box": [0.3, 0.1, 0.4, 0.8], "eye_region": [0.3, 0.25, 0.4, 0.2], "mouth_region": [0.3, 0.55, 0.4, 0.25]}},
 }
 FACE = {"face_box": [0.3, 0.1, 0.4, 0.8], "eye_region": [0.3, 0.25, 0.4, 0.2], "mouth_region": [0.3, 0.55, 0.4, 0.25]}
 CONTENT = {
@@ -121,6 +130,7 @@ def main() -> int:
 
     gradual = publish(GRADUAL, "Gradual face (demo)")
     interest = publish(INTEREST, "Interest conversation (demo)")
+    live = publish(LIVE, "Live conversation (demo)")
     content = ok(c.post(f"/studies/{study}/content", json={"title": "Trains talk (sample face)", "definition": CONTENT, "topic_tags": ["Trains"], "face_id": "sample", "voice_id": "sample"}, headers=res), "content")["id"]
     video = SAMPLE_FACE.read_bytes()
     for key in ("s1.webm", "s2.webm", "s3.webm"):
@@ -129,6 +139,7 @@ def main() -> int:
     base = f"/studies/{study}/participants/{joined['participant_code']}/assignments"
     ok(c.post(base, json={"protocol_id": gradual}, headers=res), "assign gradual")
     ok(c.post(base, json={"protocol_id": interest}, headers=res), "assign interest")
+    ok(c.post(base, json={"protocol_id": live}, headers=res), "assign live conversation")
 
     spare = ok(c.post(f"/studies/{study}/invitations", json={}, headers=res), "spare invitation")
     print(json.dumps({

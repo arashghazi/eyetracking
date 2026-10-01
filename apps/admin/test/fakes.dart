@@ -19,9 +19,12 @@ import 'package:research_admin/features/exports/domain/exports_repository.dart';
 import 'package:research_admin/features/information_sheet/domain/information_sheet_repository.dart';
 import 'package:research_admin/features/invitations/domain/invitation.dart';
 import 'package:research_admin/features/invitations/domain/invitations_repository.dart';
+import 'package:research_admin/features/live/domain/live_models.dart';
+import 'package:research_admin/features/live/domain/live_repository.dart';
 import 'package:research_admin/features/measurement_settings/domain/measurement_settings_repository.dart';
 import 'package:research_admin/features/members/domain/members_repository.dart';
 import 'package:research_admin/features/participants/domain/participants_repository.dart';
+import 'package:research_admin/features/pilot/domain/pilot_readings.dart';
 import 'package:research_admin/features/pilot/domain/pilot_repository.dart';
 import 'package:research_admin/features/protocols/domain/protocols_repository.dart';
 import 'package:research_admin/features/replay/domain/replay_repository.dart';
@@ -1210,10 +1213,12 @@ class TestBed {
     FakeAccessLogRepository? accessLog,
     FakeAiRepository? ai,
     FakePilotRepository? pilot,
+    FakeLiveRepository? live,
     FakeStudiesRepository? studies,
     bool canSaveFiles = true,
   })  : authRepository = FakeAuthRepository(),
         ai = ai ?? FakeAiRepository(),
+        live = live ?? FakeLiveRepository(),
         replay = replay ?? FakeReplayRepository(),
         analysis = analysis ?? FakeAnalysisRepository(),
         exports = exports ?? FakeExportsRepository(),
@@ -1256,6 +1261,7 @@ class TestBed {
   final FakeAccessLogRepository accessLog;
   final FakeAiRepository ai;
   late final FakePilotRepository pilot;
+  final FakeLiveRepository live;
 
   /// The AI tab's auto-refresh timers and the live monitor's polling timers,
   /// fired by hand.
@@ -1289,6 +1295,7 @@ class TestBed {
         saveFile: saver.call,
         ai: ai,
         pilot: pilot,
+        live: live,
         schedule: (d, f) {
           final t = ManualTimer(d, f);
           timers.add(t);
@@ -1889,6 +1896,10 @@ class FakePilotRepository implements PilotRepository {
 
   /// What the next polls answer; the last one repeats.
   List<LiveStatus> liveQueue = [];
+
+  /// The conversation block that goes with each poll (the last one repeats);
+  /// empty means the session has no conversation.
+  List<ConversationMonitor?> liveConversationQueue = [];
   ApiException? liveFailure;
   final List<({String sessionId, bool first})> liveCalls = [];
 
@@ -1914,6 +1925,9 @@ class FakePilotRepository implements PilotRepository {
 
   // ---------------------------------------------------------------- report
   PilotReport reportResult = const PilotReport();
+
+  /// Conversation columns by session id; a row without an entry shows dashes.
+  Map<String, ConversationReportColumns> reportConversation = {};
   ApiException? reportFailure;
   final List<bool> reportRequests = [];
   Uint8List csvBytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, 0x73, 0x0A]);
@@ -1980,12 +1994,20 @@ class FakePilotRepository implements PilotRepository {
   }
 
   @override
-  Future<LiveStatus> live(int studyId, String sessionId, {bool first = false}) async {
+  Future<LiveReading> live(int studyId, String sessionId, {bool first = false}) async {
     liveCalls.add((sessionId: sessionId, first: first));
     if (liveFailure != null) throw liveFailure!;
-    if (liveQueue.isEmpty) return LiveStatus(sessionId: sessionId);
+    if (liveQueue.isEmpty) {
+      return LiveReading(LiveStatus(sessionId: sessionId));
+    }
     final index = (liveCalls.length - 1).clamp(0, liveQueue.length - 1);
-    return liveQueue[index];
+    final conversations = liveConversationQueue;
+    return LiveReading(
+      liveQueue[index],
+      conversation: conversations.isEmpty
+          ? null
+          : conversations[index.clamp(0, conversations.length - 1)],
+    );
   }
 
   @override
@@ -2068,10 +2090,10 @@ class FakePilotRepository implements PilotRepository {
   }
 
   @override
-  Future<PilotReport> report(int studyId, {bool includeSynthetic = false}) async {
+  Future<PilotReportData> report(int studyId, {bool includeSynthetic = false}) async {
     reportRequests.add(includeSynthetic);
     if (reportFailure != null) throw reportFailure!;
-    return reportResult;
+    return PilotReportData(reportResult, conversation: reportConversation);
   }
 
   @override
@@ -2079,5 +2101,36 @@ class FakePilotRepository implements PilotRepository {
     csvRequests.add(includeSynthetic);
     if (csvFailure != null) throw csvFailure!;
     return csvBytes;
+  }
+}
+
+// ------------------------------------------------------------------ step 7
+
+/// Staff reads of the live avatar: the provider status and the conversations
+/// by session id (a session without an entry has none, as with a 404).
+class FakeLiveRepository implements LiveRepository {
+  /// Null answers 404, as a service without the live endpoints would (the
+  /// card then stays away); set it to show the card.
+  LiveAvatarStatus? statusResult;
+  ApiException? statusFailure;
+  int statusReads = 0;
+
+  Map<String, StaffConversation> conversations = {};
+  ApiException? conversationFailure;
+  final List<String> conversationReads = [];
+
+  @override
+  Future<LiveAvatarStatus> status(int studyId) async {
+    statusReads++;
+    if (statusFailure != null) throw statusFailure!;
+    return statusResult ??
+        (throw const ApiException('Not found', statusCode: 404));
+  }
+
+  @override
+  Future<StaffConversation?> conversation(int studyId, String sessionId) async {
+    conversationReads.add(sessionId);
+    if (conversationFailure != null) throw conversationFailure!;
+    return conversations[sessionId];
   }
 }

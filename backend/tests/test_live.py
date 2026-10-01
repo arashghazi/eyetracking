@@ -103,6 +103,8 @@ def test_typed_conversation_flow_and_privacy(world):
     assert "redirect_line" in t3["avatar"]["flags"] and t3["avatar"]["text"].startswith("Let's keep talking about Trains")
     t4 = say(c, sid, p, 3, "ok bye, I want to stop")
     assert t4["done"] and t4["end_reason"] == "participant" and t4["turns_left"] == 0
+    # the participant still gets the line they are about to hear, although nothing is kept
+    assert t4["avatar"]["text"].startswith("Thank you for talking with me about Trains") and t4["participant"]["text"] == "ok bye, I want to stop"
     assert c.post(f"/me/sessions/{sid}/live/turn", json={"expect_turn": 4, "text": "x"}, headers=p).status_code == 409
     # text is gone after the conversation; counts and flags stay
     staff = c.get(f"/studies/{world.study_a}/sessions/{sid}/conversation", headers=auth(world.analyst_a)).json()
@@ -137,9 +139,11 @@ def test_transcript_kept_only_with_both_agreements(world):
     sid2 = live_session(world, definition=definition)
     c.post(f"/me/sessions/{sid2}/live/start", json={"input_mode": "typed", "allow_transcript": False}, headers=p)
     say(c, sid2, p, 0, "Steam is fun")
+    ended = c.post(f"/me/sessions/{sid2}/live/end", json={"t_ms": 8000}, headers=p).json()
+    assert ended["avatar"]["text"].startswith("Thank you") and ended["end_reason"] == "participant_ended"
     c.post(f"/me/sessions/{sid2}/events", json={"t_ms": 9000, "type": "end", "payload": {"reason": "completed"}}, headers=p)
     staff = c.get(f"/studies/{world.study_a}/sessions/{sid2}/conversation", headers=auth(world.researcher_a)).json()
-    assert staff["conversation"]["end_reason"] == "session_ended" and all(t["text"] is None for t in staff["turns"])
+    assert staff["conversation"]["end_reason"] == "participant_ended" and all(t["text"] is None for t in staff["turns"])
 
 
 def test_turn_limit_distress_and_outcome(world):
@@ -155,7 +159,7 @@ def test_turn_limit_distress_and_outcome(world):
     live = c.get(f"/studies/{world.study_a}/sessions/{sid}/live", headers=auth(world.researcher_a)).json()
     assert live["conversation"]["distress"] == 1 and live["conversation"]["status"] == "open"
     last = say(c, sid, p, 2, "Trains go fast")
-    assert last["done"] and last["end_reason"] == "turn_limit" and "closing" in last["avatar"]["flags"]
+    assert last["done"] and last["end_reason"] == "turn_limit" and "closing" in last["avatar"]["flags"] and last["avatar"]["text"].startswith("Thank you")
     summary = c.get(f"/me/sessions/{sid}", headers=p).json()
     conv = summary["outcomes"]["conversation"]
     assert conv["participant_turns"] == 3 and conv["distress"] == 1 and conv["end_reason"] == "turn_limit"

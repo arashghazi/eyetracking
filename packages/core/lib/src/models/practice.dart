@@ -2,6 +2,8 @@
 /// answers, plus the outcome blocks of the session summary.
 library;
 
+import 'live.dart';
+
 double? _d(Object? v) => (v as num?)?.toDouble();
 int _i(Object? v) => (v as num?)?.toInt() ?? 0;
 
@@ -290,6 +292,7 @@ class SessionOutcomes {
     this.numberTask = const NumberTaskOutcome(),
     this.comfort = const ComfortOutcome(),
     this.improvement = const ImprovementOutcome(),
+    this.conversation,
   });
 
   final GazeOutcome gaze;
@@ -297,6 +300,10 @@ class SessionOutcomes {
   final NumberTaskOutcome numberTask;
   final ComfortOutcome comfort;
   final ImprovementOutcome improvement;
+
+  /// Step 7: counts and the reply model's on-topic judgement of the live
+  /// conversation; null on the other paths.
+  final ConversationOutcome? conversation;
 
   static SessionOutcomes? maybeFromJson(Object? v) {
     if (v is! Map<String, dynamic>) return null;
@@ -306,6 +313,7 @@ class SessionOutcomes {
       numberTask: NumberTaskOutcome.fromJson(v['number_task']),
       comfort: ComfortOutcome.fromJson(v['comfort']),
       improvement: ImprovementOutcome.fromJson(v['improvement']),
+      conversation: ConversationOutcome.maybeFromJson(v['conversation']),
     );
   }
 }

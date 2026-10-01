@@ -31,7 +31,7 @@ Assignments of this path start as `pending_topic`; `POST /me/assignments/{id}/to
   - `end_reason`: `participant` (asked to stop), `participant_ended` (End button), `turn_limit`, `time_limit`, `budget`, `session_ended`.
   - `distress: true` → the app shows a calm "take a break" option; the supervisor's live monitor counts it.
 - `POST /me/sessions/{sid}/live/end` `{t_ms?}` → `{avatar: closing turn, turns_used, done: true, end_reason: "participant_ended"}`.
-- Ending the session (`end` event) closes an open conversation (`session_ended`). When a conversation closes without `transcript_allowed`, every turn's text is removed; counts and flags stay.
+- Ending the session (`end` event) closes an open conversation (`session_ended`). When a conversation closes without `transcript_allowed`, every turn's stored text is removed; counts and flags stay. The response that closes it still carries the lines the participant reads and hears.
 
 ## Rules the server enforces on every reply
 The reply provider returns `{reply, participant_on_topic, participant_distress, participant_wants_to_stop}`. Then: a wish to stop → closing line and close; distress → the scripted distress line; a second off-topic message in a row → the redirect line; an empty reply, a link, an e-mail address, a phone number, or clinical, therapeutic or research words (diagnosis, medication, therapy, autism, disorder, eye contact, gaze, eye tracking) → the redirect line; replies longer than `max_reply_words` are shortened at a sentence or word boundary; a refusal or API error → the redirect line. The last allowed turn and the time limit end with the closing line. Stored text has e-mail addresses, phone numbers and links removed.

@@ -15,6 +15,7 @@ import 'features/demographics_form/data/api_demographics_form_repository.dart';
 import 'features/exports/data/api_exports_repository.dart';
 import 'features/information_sheet/data/api_information_sheet_repository.dart';
 import 'features/invitations/data/api_invitations_repository.dart';
+import 'features/live/data/api_live_repository.dart';
 import 'features/measurement_settings/data/api_measurement_settings_repository.dart';
 import 'features/members/data/api_members_repository.dart';
 import 'features/participants/data/api_participants_repository.dart';
@@ -60,6 +61,7 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     saveFile: saveFile,
     ai: ApiAiRepository(api),
     pilot: ApiPilotRepository(api),
+    live: ApiLiveRepository(api),
   );
 }
 

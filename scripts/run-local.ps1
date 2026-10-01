@@ -264,7 +264,7 @@ Write-Host "     administrator  $($sec.admin_email)  /  $($sec.admin_password)"
 if ($demo -and -not $demo.skipped) { Write-Host "     researcher     $($sec.researcher_email)  /  $($sec.researcher_password)" }
 Write-Host "  Participant App  http://localhost:$ParticipantPort"
 if ($demo -and -not $demo.skipped) {
-  Write-Host "     demo participant $($sec.participant_email)  /  $($sec.participant_password)  (code $($demo.participant_code), both practice paths assigned)"
+  Write-Host "     demo participant $($sec.participant_email)  /  $($sec.participant_password)  (code $($demo.participant_code), three practice paths assigned)"
   Write-Host "     new sign-up    $($demo.invitation_link)"
 }
 $synthetic = ''

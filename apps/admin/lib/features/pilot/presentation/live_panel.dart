@@ -2,7 +2,9 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../ai/presentation/ai_widgets.dart' show MutedText;
+import '../../live/domain/live_models.dart';
 import '../application/live_monitor_controller.dart';
+import 'conversation_block.dart';
 import 'pilot_widgets.dart';
 
 /// The status of the monitored session: what the participant is doing, how
@@ -69,7 +71,7 @@ class LivePanel extends StatelessWidget {
             ],
             if (live == null && c.liveError == null)
               const BusyBox()
-            else if (live != null) ..._body(context, live),
+            else if (live != null) ..._body(context, live, c.conversation),
           ],
         ),
       ),
@@ -94,7 +96,11 @@ class LivePanel extends StatelessWidget {
     );
   }
 
-  List<Widget> _body(BuildContext context, LiveStatus live) {
+  List<Widget> _body(
+    BuildContext context,
+    LiveStatus live,
+    ConversationMonitor? conversation,
+  ) {
     final theme = Theme.of(context);
     final stage = live.lastStageResult;
     final validation = live.validation;
@@ -194,6 +200,10 @@ class LivePanel extends StatelessWidget {
           ),
         ],
       ),
+      if (conversation != null) ...[
+        const SizedBox(height: 16),
+        ConversationMonitorBlock(monitor: conversation),
+      ],
       const SizedBox(height: 16),
       Text(
         'Last ${(live.recentWindowMs / 1000).round()} s of gaze data '

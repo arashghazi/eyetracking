@@ -255,7 +255,8 @@ void main() {
       expect(w.lastQuery, 'first=true');
       final live = await repo.live(1, '21');
       expect(w.lastQuery, 'first=false');
-      expect(live.status, 'running');
+      expect(live.status.status, 'running');
+      expect(live.conversation, isNull);
     });
 
     test('a 403 shows the server message', () async {
@@ -473,8 +474,8 @@ void main() {
       final repo = ApiPilotRepository(w.client());
       final report = await repo.report(1);
       expect(w.lastQuery, 'include_synthetic=false');
-      expect(report.settings.version, 3);
-      expect(report.validationPassed, 1);
+      expect(report.report.settings.version, 3);
+      expect(report.report.validationPassed, 1);
 
       await repo.report(1, includeSynthetic: true);
       expect(w.lastQuery, 'include_synthetic=true');

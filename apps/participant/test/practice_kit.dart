@@ -1,13 +1,16 @@
 import 'dart:math' as math;
 
 import 'package:eyetracking_core/eyetracking_core.dart';
+import 'package:eyetracking_core/testing.dart';
 import 'package:participant_app/features/session/application/gradual_practice_controller.dart';
 import 'package:participant_app/features/session/application/interest_practice_controller.dart';
+import 'package:participant_app/features/session/application/live_practice_controller.dart';
 import 'package:participant_app/features/session/application/segment_recorder.dart';
 import 'package:participant_app/features/session/domain/session_step.dart';
 import 'package:participant_app/features/session/domain/stimulus_geometry.dart';
 
 import 'fakes.dart';
+import 'live_kit.dart';
 import 'session_kit.dart';
 
 /// Records what a practice controller asks of the session flow.
@@ -103,6 +106,18 @@ ProtocolDefinition interestProtocol({
       baselineSeconds: baselineSeconds,
       postSeconds: postSeconds,
       interest: const InterestConfig(),
+    );
+
+ProtocolDefinition liveProtocol({
+  double baselineSeconds = 30,
+  double postSeconds = 30,
+  LiveProtocolConfig live = const LiveProtocolConfig(),
+}) =>
+    ProtocolDefinition(
+      path: ProtocolPath.liveConversation,
+      baselineSeconds: baselineSeconds,
+      postSeconds: postSeconds,
+      live: live,
     );
 
 const testFaceLayout = NormalizedFaceLayout(
@@ -276,6 +291,59 @@ class InterestRig {
   }
 }
 
+/// Everything a live controller test needs: the fake server, the recorder of
+/// segments, the browser voice and the microphone.
+class LiveRig {
+  LiveRig({
+    FakeLiveRepository? repo,
+    ScreenInfo screen = screen1440,
+    bool withMicrophone = true,
+  })  : repo = repo ?? FakeLiveRepository(),
+        recorder = FakeSegmentRecorder(),
+        speech = FakeSpeechSynthesizer(),
+        mic = FakeAudioRecorder() {
+    controller = LivePracticeController(
+      sessionId: '11',
+      repository: this.repo,
+      recorder: recorder,
+      screen: () => screen,
+      speech: speech,
+      audioRecorder: withMicrophone ? () => mic : null,
+      closingFallback: 'Thank you, Sam.',
+      onFinished: finished.add,
+      onPostFinished: () => postFinished++,
+    );
+  }
+
+  final FakeLiveRepository repo;
+  final FakeSegmentRecorder recorder;
+  final FakeSpeechSynthesizer speech;
+  final FakeAudioRecorder mic;
+  late final LivePracticeController controller;
+  final List<PracticeEnd> finished = [];
+  int postFinished = 0;
+
+  /// Loads and starts a typed conversation.
+  Future<void> startTyped() async {
+    await controller.load();
+    await controller.begin();
+  }
+
+  /// Loads and starts a spoken conversation.
+  Future<void> startSpoken() async {
+    await controller.load();
+    controller.chooseMode(LiveInputMode.speech);
+    await controller.begin();
+  }
+
+  /// The avatar video starts and is drawn in [rect].
+  Future<void> playVideo({Box rect = const Box(0, 40, 1000, 560)}) async {
+    controller.onVideoRect(rect);
+    controller.onVideoPlaying();
+    await settle();
+  }
+}
+
 /// Assignment for a protocol of [path].
 Assignment assignmentFor(
   ProtocolPath path, {
@@ -286,7 +354,8 @@ Assignment assignmentFor(
       id: '5',
       status: status,
       protocol: ProtocolRef(id: '7', name: 'Test protocol', version: 1, path: path),
-      topic: topic ?? (path == ProtocolPath.interestConversation ? 'trains' : null),
+      topic: topic ??
+          (path == ProtocolPath.gradualFace ? null : 'trains'),
     );
 
 /// The flow controller of a protocol session, with the fakes it needs.
@@ -297,7 +366,11 @@ Rig protocolRig(
   SessionTiming timing = practiceTiming,
   ScreenInfo screen = screen1440,
   bool autoFrames = true,
+  FakeLiveRepository? live,
+  FakeSpeechSynthesizer? speech,
+  FakeAudioRecorder? microphone,
 }) {
+  final mic = microphone ?? FakeAudioRecorder();
   final rig = Rig(
     timing: timing,
     screen: screen,
@@ -305,6 +378,9 @@ Rig protocolRig(
     assignment: assignmentFor(protocol.path),
     assignments: FakeAssignmentsRepository(content: content),
     profile: FakeProfileRepository()..profile = profile,
+    live: live ?? FakeLiveRepository(),
+    speech: speech ?? FakeSpeechSynthesizer(),
+    audioRecorder: () => mic,
     seed: 3,
   );
   rig.repo.protocolForCreate = ProtocolRef(

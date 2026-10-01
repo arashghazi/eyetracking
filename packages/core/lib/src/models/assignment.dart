@@ -47,6 +47,9 @@ class Assignment {
   final String? createdAt;
 
   bool get isInterest => protocol.path == ProtocolPath.interestConversation;
+
+  /// Step 7: a live conversation with an avatar (no prepared content).
+  bool get isLive => protocol.path == ProtocolPath.liveConversation;
   bool get canStartSession =>
       status == AssignmentStatus.ready || status == AssignmentStatus.inProgress;
 

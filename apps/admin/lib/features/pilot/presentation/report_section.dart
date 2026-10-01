@@ -2,6 +2,7 @@ import 'package:eyetracking_core/eyetracking_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../ai/presentation/ai_widgets.dart' show MutedText;
+import '../../live/domain/live_models.dart';
 import '../../sessions/presentation/session_widgets.dart'
     show QualityBadge, ValidationBadge;
 import '../application/pilot_report_controller.dart';
@@ -100,7 +101,7 @@ class ReportSection extends StatelessWidget {
                       ),
                     )
             else
-              _ReportBody(report: r),
+              _ReportBody(report: r, columnsFor: c.conversationColumns),
           ],
         );
       },
@@ -109,9 +110,12 @@ class ReportSection extends StatelessWidget {
 }
 
 class _ReportBody extends StatelessWidget {
-  const _ReportBody({required this.report});
+  const _ReportBody({required this.report, required this.columnsFor});
 
   final PilotReport report;
+
+  /// The conversation columns of a row, by session id.
+  final ConversationReportColumns Function(String sessionId) columnsFor;
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +327,7 @@ class _ReportBody extends StatelessWidget {
           title: 'Sessions',
           caption: 'One row per session. The CSV has every column, with one '
               'column per debrief question.',
-          children: [_RowsTable(rows: r.rows)],
+          children: [_RowsTable(rows: r.rows, columnsFor: columnsFor)],
         ),
       ],
     );
@@ -439,9 +443,10 @@ class _ObservationMatrix extends StatelessWidget {
 }
 
 class _RowsTable extends StatelessWidget {
-  const _RowsTable({required this.rows});
+  const _RowsTable({required this.rows, required this.columnsFor});
 
   final List<PilotReportRow> rows;
+  final ConversationReportColumns Function(String sessionId) columnsFor;
 
   static SessionQuality _quality(PilotReportRow r) => SessionQuality(
         grade: r.quality,
@@ -450,6 +455,15 @@ class _RowsTable extends StatelessWidget {
             if (x.isNotEmpty) x,
         ],
       );
+
+  /// Turns, on-topic share, distress and end reason; dashes when the session
+  /// has no conversation.
+  static List<DataCell> _conversationCells(ConversationReportColumns c) => [
+        DataCell(Text(c.turns == null ? '-' : '${c.turns}')),
+        DataCell(Text(formatPercent(c.onTopicShare))),
+        DataCell(Text(c.distress == null ? '-' : '${c.distress}')),
+        DataCell(Text(conversationEndReasonLabel(c.endReason))),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -481,6 +495,10 @@ class _RowsTable extends StatelessWidget {
           DataColumn(label: Text('Ended early')),
           DataColumn(label: Text('Comprehension'), numeric: true),
           DataColumn(label: Text('Number task'), numeric: true),
+          DataColumn(label: Text('Conversation turns'), numeric: true),
+          DataColumn(label: Text('On-topic share'), numeric: true),
+          DataColumn(label: Text('Conversation distress'), numeric: true),
+          DataColumn(label: Text('Conversation end')),
           DataColumn(label: Text('Debrief')),
           DataColumn(label: Text('Observations'), numeric: true),
           DataColumn(label: Text('Tracker files'), numeric: true),
@@ -514,6 +532,7 @@ class _RowsTable extends StatelessWidget {
                 DataCell(Text(r.endedEarly == null ? '-' : (r.endedEarly! ? 'Yes' : 'No'))),
                 DataCell(Text(formatPercent(r.comprehensionShare))),
                 DataCell(Text(formatPercent(r.numberTaskShare))),
+                ..._conversationCells(columnsFor(r.sessionId)),
                 DataCell(Text(r.debrief)),
                 DataCell(Text(
                   r.observationsMajorOrStop > 0

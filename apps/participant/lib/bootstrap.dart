@@ -13,6 +13,7 @@ import 'features/demographics/data/api_demographics_repository.dart';
 import 'features/erase/data/api_erase_repository.dart';
 import 'features/home/data/api_home_repository.dart';
 import 'features/profile/data/api_profile_repository.dart';
+import 'features/session/data/api_live_repository.dart';
 import 'features/session/data/api_session_repository.dart';
 
 /// Service address; override with `--dart-define=API_BASE_URL=...`.
@@ -45,6 +46,9 @@ AppDependencies buildDependencies({String baseUrl = apiBaseUrl}) {
     erase: ApiEraseRepository(api),
     debrief: ApiDebriefRepository(api),
     saveFile: saveFile,
+    live: ApiLiveRepository(api),
+    speech: createSpeechSynthesizer(),
+    audioRecorder: createAudioRecorder,
     initialInvitationToken: Uri.base.queryParameters['invitation'] ?? '',
   );
 }

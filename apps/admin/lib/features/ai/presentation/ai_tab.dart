@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../../app_scope.dart';
 import '../../content/presentation/content_editor_screen.dart';
+import '../../live/application/live_avatar_controller.dart';
+import '../../live/presentation/live_avatar_card.dart';
 import '../application/ai_controller.dart';
 import 'ai_status_card.dart';
 import 'jobs_table.dart';
@@ -38,6 +40,8 @@ class AiTab extends StatefulWidget {
 
 class _AiTabState extends State<AiTab> with AutomaticKeepAliveClientMixin {
   late final AiController _controller;
+  late final LiveAvatarController _live;
+  AiBudget? _shownBudget;
   TabController? _tabs;
   bool _visible = false;
 
@@ -54,6 +58,23 @@ class _AiTabState extends State<AiTab> with AutomaticKeepAliveClientMixin {
       content: deps.content,
       schedule: deps.schedule,
     )..load();
+    _live = LiveAvatarController(deps.live, widget.studyId)..load();
+    _controller.addListener(_onBudgetChanged);
+  }
+
+  /// The cap is shared with the live replies: when it changes, the live card
+  /// reads its numbers again.
+  void _onBudgetChanged() {
+    final saved = _controller.savedBudget;
+    if (saved != null && !identical(saved, _shownBudget)) {
+      _shownBudget = saved;
+      _live.load();
+    }
+  }
+
+  void _reload() {
+    _controller.load();
+    _live.load();
   }
 
   @override
@@ -72,14 +93,19 @@ class _AiTabState extends State<AiTab> with AutomaticKeepAliveClientMixin {
     final tabs = _tabs;
     if (tabs == null || tabs.indexIsChanging) return;
     final visible = tabs.index == widget.tabIndex;
-    if (visible && !_visible) _controller.refresh();
+    if (visible && !_visible) {
+      _controller.refresh();
+      _live.load();
+    }
     _visible = visible;
   }
 
   @override
   void dispose() {
     _tabs?.removeListener(_onTab);
+    _controller.removeListener(_onBudgetChanged);
     _controller.dispose();
+    _live.dispose();
     super.dispose();
   }
 
@@ -140,7 +166,7 @@ class _AiTabState extends State<AiTab> with AutomaticKeepAliveClientMixin {
                 Text('AI content', style: theme.textTheme.titleLarge),
                 OutlinedButton.icon(
                   key: const Key('refresh-jobs'),
-                  onPressed: c.loading ? null : c.load,
+                  onPressed: c.loading ? null : _reload,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Refresh'),
                 ),
@@ -163,6 +189,8 @@ class _AiTabState extends State<AiTab> with AutomaticKeepAliveClientMixin {
             ),
             const SizedBox(height: 12),
             AiStatusCard(controller: c, isAdmin: widget.isAdmin),
+            const SizedBox(height: 12),
+            LiveAvatarCard(controller: _live),
             if (widget.canEdit) ...[
               const SizedBox(height: 12),
               TextJobCard(

@@ -35,6 +35,34 @@ void main() {
     expect(find.text('/media/a'), findsOneWidget);
   });
 
+  testWidgets('a looping muted video starts but never reports an end',
+      (tester) async {
+    var playing = 0;
+    var ended = 0;
+    late VideoStageConfig seen;
+    await tester.pumpWidget(host(Builder(builder: (context) {
+      seen = VideoStageConfig(
+        url: '/static/live/sample-face.webm',
+        loop: true,
+        muted: true,
+        onPlaying: () => playing++,
+        onEnded: () => ended++,
+      );
+      return FakeVideoStage(
+        config: seen,
+        duration: const Duration(milliseconds: 100),
+      );
+    })));
+    await tester.pump();
+    expect(playing, 1);
+    await tester.pump(const Duration(seconds: 2));
+    expect(ended, 0);
+    expect(seen.loop, isTrue);
+    expect(seen.muted, isTrue);
+    expect(const VideoStageConfig(url: 'x').loop, isFalse);
+    expect(const VideoStageConfig(url: 'x').muted, isFalse);
+  });
+
   testWidgets('a new url restarts the clock', (tester) async {
     var ended = 0;
     Widget stage(String url) => host(FakeVideoStage(

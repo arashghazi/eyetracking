@@ -100,9 +100,13 @@ class TextJobFormController extends SafeChangeNotifier {
     notifyListeners();
     try {
       final all = await _assignments.list(studyId, code);
+      // A live conversation has no prepared content: its confirmed topic is
+      // all the avatar may talk about, so there is nothing to generate.
       _waiting = [
         for (final a in all)
-          if (waitingStatuses.contains(a.status)) a,
+          if (waitingStatuses.contains(a.status) &&
+              a.protocol.path != ProtocolPath.liveConversation)
+            a,
       ];
       _assignmentsLoaded = true;
       if (_waiting.length == 1) _assignmentId = _waiting.first.id;

@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:eyetracking_core/eyetracking_core.dart';
 
+import 'pilot_readings.dart';
+
 /// The step 6 endpoints (supervised pilot). Study data needs membership:
 /// researchers write and monitor, researchers and analysts read. An
 /// administrator who is not a member gets a 403 whose message is shown as the
@@ -42,7 +44,7 @@ abstract class PilotRepository {
 
   /// One poll of the live monitor. [first] is true on the first call after
   /// monitoring starts: that call is written to the access log.
-  Future<LiveStatus> live(int studyId, String sessionId, {bool first = false});
+  Future<LiveReading> live(int studyId, String sessionId, {bool first = false});
 
   // --------------------------------------------------------------- debrief
 
@@ -79,7 +81,7 @@ abstract class PilotRepository {
 
   // ---------------------------------------------------------------- report
 
-  Future<PilotReport> report(int studyId, {bool includeSynthetic = false});
+  Future<PilotReportData> report(int studyId, {bool includeSynthetic = false});
 
   /// The report rows as UTF-8 CSV with a byte order mark.
   Future<Uint8List> reportCsv(int studyId, {bool includeSynthetic = false});

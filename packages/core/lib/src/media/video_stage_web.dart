@@ -45,6 +45,12 @@ class _VideoStageState extends State<VideoStage> implements VideoStagePlayer {
       old.config.controller?.detach(this);
       widget.config.controller?.attach(this);
     }
+    final video = _video;
+    if (video != null) {
+      video
+        ..loop = widget.config.loop
+        ..muted = widget.config.muted;
+    }
     if (old.config.url != widget.config.url) _load();
   }
 
@@ -88,7 +94,8 @@ class _VideoStageState extends State<VideoStage> implements VideoStagePlayer {
   void _attach(web.HTMLVideoElement video) {
     _video = video
       ..controls = false
-      ..muted = false
+      ..muted = widget.config.muted
+      ..loop = widget.config.loop
       ..autoplay = false
       ..playsInline = true
       ..preload = 'auto';

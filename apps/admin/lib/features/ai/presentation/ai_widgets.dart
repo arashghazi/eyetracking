@@ -142,3 +142,54 @@ class MutedText extends StatelessWidget {
             ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
 }
+
+/// A label in a fixed column followed by values that wrap.
+class LabelRow extends StatelessWidget {
+  const LabelRow({super.key, required this.label, required this.children});
+
+  final String label;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+          ),
+          ...children,
+        ],
+      );
+}
+
+/// A label and a bold value on one line.
+class FigureText extends StatelessWidget {
+  const FigureText({
+    super.key,
+    required this.keyName,
+    required this.label,
+    required this.value,
+  });
+
+  final String keyName;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Text.rich(
+        key: Key(keyName),
+        TextSpan(children: [
+          TextSpan(
+            text: '$label ',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+          TextSpan(
+            text: value,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ]),
+      );
+}
