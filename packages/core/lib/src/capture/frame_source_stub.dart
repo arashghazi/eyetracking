@@ -15,13 +15,19 @@ class WebFrameSource extends FrameSource {
       'Camera capture is available on PC web first; Android arrives later');
 
   @override
+  Future<void> selectCamera(String deviceId) async {}
+
+  @override
   Future<void> stop() async {}
 
   @override
   bool get isActive => false;
 
   @override
-  List<String> get cameraLabels => const [];
+  List<CameraDevice> get cameras => const [];
+
+  @override
+  String? get activeCameraId => null;
 
   @override
   String? get activeCameraLabel => null;

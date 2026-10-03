@@ -65,10 +65,13 @@ class CameraCheckStep extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (c.frameSource.cameraLabels.isNotEmpty) ...[
+                if (c.frameSource.cameras.length > 1) ...[
+                  const SizedBox(height: 16),
+                  _CameraPicker(controller: c),
+                ] else if (c.frameSource.cameras.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Camera: ${c.frameSource.activeCameraLabel ?? c.frameSource.cameraLabels.first}',
+                    'Camera: ${c.frameSource.activeCameraLabel ?? c.frameSource.cameras.first.label}',
                     style: theme.textTheme.bodySmall?.copyWith(color: muted),
                   ),
                 ],
@@ -119,6 +122,47 @@ class CameraCheckStep extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Choice between the cameras the browser reports. Rebuilt whenever the
+/// camera in use changes, so a failed switch shows the camera still open.
+class _CameraPicker extends StatelessWidget {
+  const _CameraPicker({required this.controller});
+
+  final SessionFlowController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = controller.frameSource;
+    final active = source.activeCameraId;
+    final known = source.cameras.any((cam) => cam.id == active);
+    return KeyedSubtree(
+      key: ValueKey('camera-picker-$active-${controller.busy}'),
+      child: DropdownButtonFormField<String>(
+        key: const Key('camera-select'),
+        initialValue: known ? active : null,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Camera',
+          helperText: 'Choose the camera in front of you. This computer '
+              'remembers your choice.',
+        ),
+        hint: const Text('Choose a camera'),
+        items: [
+          for (final cam in source.cameras)
+            DropdownMenuItem(
+              value: cam.id,
+              child: Text(cam.label, overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        onChanged: controller.busy
+            ? null
+            : (id) {
+                if (id != null) controller.selectCamera(id);
+              },
+      ),
     );
   }
 }

@@ -15,9 +15,11 @@ import 'frame_source.dart';
 
 /// Camera capture in the browser: `getUserMedia` video, drawn on a hidden
 /// canvas and encoded as JPEG (quality 0.7). Frames never leave memory
-/// except to the gaze estimator.
+/// except to the gaze estimator. The chosen camera's device id is kept in
+/// localStorage so the next session opens the same camera.
 class WebFrameSource extends FrameSource {
   static const _viewType = 'eyetracking-camera-preview';
+  static const _storageKey = 'eyetracking.camera_device_id';
   static bool _registered = false;
   static final List<web.HTMLVideoElement> _previews = [];
   static WebFrameSource? _current;
@@ -25,10 +27,15 @@ class WebFrameSource extends FrameSource {
   web.MediaStream? _stream;
   web.HTMLVideoElement? _video;
   web.HTMLCanvasElement? _canvas;
-  List<String> _labels = const [];
+  List<CameraDevice> _cameras = const [];
+  String? _activeId;
   String? _activeLabel;
+  String? _chosenId;
+  bool _chosenLoaded = false;
   int _width = 0;
   int _height = 0;
+  int _askW = 640;
+  int _askH = 480;
 
   final _events = StreamController<FrameSourceEvent>.broadcast();
   Timer? _debounce;
@@ -45,7 +52,10 @@ class WebFrameSource extends FrameSource {
   bool get isActive => _stream != null;
 
   @override
-  List<String> get cameraLabels => _labels;
+  List<CameraDevice> get cameras => _cameras;
+
+  @override
+  String? get activeCameraId => _activeId;
 
   @override
   String? get activeCameraLabel => _activeLabel;
@@ -62,21 +72,89 @@ class WebFrameSource extends FrameSource {
   @override
   Future<void> start({int width = 640, int height = 480}) async {
     if (_stream != null) return;
-    _registerPreviewFactory();
-    final web.MediaStream stream;
+    _askW = width;
+    _askH = height;
+    await _open(_chosen, fallback: true);
+  }
+
+  @override
+  Future<void> selectCamera(String deviceId) async {
+    final previous = _chosen;
+    _chosenId = deviceId;
+    if (_stream == null || deviceId == _activeId) {
+      _remember(deviceId);
+      return;
+    }
+    await stop();
     try {
-      stream = await web.window.navigator.mediaDevices
-          .getUserMedia(web.MediaStreamConstraints(
-            video: {
-              'width': {'ideal': width},
-              'height': {'ideal': height},
-              'facingMode': 'user',
-            }.jsify()!,
-            audio: false.toJS,
-          ))
-          .toDart;
+      await _open(deviceId, fallback: false);
+      _remember(deviceId);
+    } on FrameSourceException {
+      _chosenId = previous;
+      try {
+        await _open(previous, fallback: true);
+      } catch (_) {
+        // The participant sees the first error; the preview stays dark.
+      }
+      rethrow;
+    }
+  }
+
+  /// The camera chosen on this device, loaded once from localStorage.
+  String? get _chosen {
+    if (!_chosenLoaded) {
+      _chosenLoaded = true;
+      try {
+        final stored = web.window.localStorage.getItem(_storageKey);
+        if (stored != null && stored.isNotEmpty) _chosenId ??= stored;
+      } catch (_) {
+        // Storage can be disabled; the browser default is used then.
+      }
+    }
+    return _chosenId;
+  }
+
+  void _remember(String deviceId) {
+    try {
+      web.window.localStorage.setItem(_storageKey, deviceId);
+    } catch (_) {
+      // Not remembered across sessions; this session still uses it.
+    }
+  }
+
+  Future<web.MediaStream> _request(String? deviceId) => web
+      .window.navigator.mediaDevices
+      .getUserMedia(web.MediaStreamConstraints(
+        video: {
+          'width': {'ideal': _askW},
+          'height': {'ideal': _askH},
+          if (deviceId != null)
+            'deviceId': {'exact': deviceId}
+          else
+            'facingMode': 'user',
+        }.jsify()!,
+        audio: false.toJS,
+      ))
+      .toDart;
+
+  /// Opens [deviceId] (the browser default when null). With [fallback], a
+  /// remembered camera that is no longer connected gives way to the default.
+  Future<void> _open(String? deviceId, {required bool fallback}) async {
+    _registerPreviewFactory();
+    web.MediaStream stream;
+    try {
+      stream = await _request(deviceId);
     } catch (e) {
-      throw FrameSourceException(_cameraErrorMessage(e));
+      final gone = e.toString().contains('Overconstrained') ||
+          e.toString().contains('NotFound');
+      if (!fallback || deviceId == null || !gone) {
+        throw FrameSourceException(_cameraErrorMessage(e));
+      }
+      try {
+        stream = await _request(null);
+      } catch (e) {
+        throw FrameSourceException(_cameraErrorMessage(e));
+      }
     }
 
     final video = web.document.createElement('video') as web.HTMLVideoElement
@@ -100,10 +178,23 @@ class WebFrameSource extends FrameSource {
     _current = this;
     final tracks = stream.getVideoTracks().toDart;
     _activeLabel = tracks.isEmpty ? null : tracks.first.label;
-    if (tracks.isNotEmpty) tracks.first.addEventListener('ended', _onTrackEnded);
+    _activeId = null;
+    if (tracks.isNotEmpty) {
+      tracks.first.addEventListener('ended', _onTrackEnded);
+      try {
+        final id = tracks.first.getSettings().deviceId;
+        if (id.isNotEmpty) _activeId = id;
+      } catch (_) {
+        // Older browsers: the id is matched by label below.
+      }
+    }
     _width = video.videoWidth;
     _height = video.videoHeight;
-    await _refreshLabels();
+    await _refreshCameras();
+    _activeId ??= _cameras
+        .where((c) => c.label == _activeLabel)
+        .map((c) => c.id)
+        .firstOrNull;
     _attachListeners();
     for (final p in _previews) {
       p.srcObject = stream;
@@ -242,24 +333,28 @@ class WebFrameSource extends FrameSource {
     _orientation = null;
   }
 
-  Future<void> _refreshLabels() async {
+  Future<void> _refreshCameras() async {
     try {
       final devices =
           await web.window.navigator.mediaDevices.enumerateDevices().toDart;
-      _labels = [
-        for (final d in devices.toDart)
-          if (d.kind == 'videoinput')
-            d.label.isEmpty ? 'Camera ${_labels.length + 1}' : d.label,
-      ];
+      final found = <CameraDevice>[];
+      for (final d in devices.toDart) {
+        if (d.kind != 'videoinput') continue;
+        found.add(CameraDevice(
+          id: d.deviceId,
+          label: d.label.isEmpty ? 'Camera ${found.length + 1}' : d.label,
+        ));
+      }
+      _cameras = found;
     } catch (_) {
-      // Labels are informational only.
+      // Without the list the participant keeps the camera that opened.
     }
   }
 
   void _handleDeviceChange(web.Event _) {
-    final before = List<String>.of(_labels);
-    _refreshLabels().then((_) {
-      if (_stream != null && !listEquals(before, _labels)) {
+    final before = List<CameraDevice>.of(_cameras);
+    _refreshCameras().then((_) {
+      if (_stream != null && !listEquals(before, _cameras)) {
         _events.add(FrameSourceEvent.cameraChanged);
       }
     });
@@ -294,6 +389,10 @@ class WebFrameSource extends FrameSource {
     if (text.contains('NotAllowed') || text.contains('Permission')) {
       return 'Camera access was not allowed. Allow the camera for this page in '
           'the browser address bar, then try again.';
+    }
+    if (text.contains('Overconstrained')) {
+      return 'The chosen camera is not available. Check that it is connected '
+          'or choose another camera.';
     }
     if (text.contains('NotFound') || text.contains('Devices not found')) {
       return 'No camera was found. Connect a camera and try again.';

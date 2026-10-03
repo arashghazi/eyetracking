@@ -125,6 +125,52 @@ void main() {
       expect(rig.controller.cameraOutcome!.passed, isTrue);
       expect(rig.repo.cameraChecks, hasLength(2));
     });
+
+    test('choosing another camera restarts it and needs a new check',
+        () async {
+      final rig = Rig(cameras: const ['Virtual camera', 'HD Pro Webcam C920']);
+      addTearDown(rig.dispose);
+      await rig.toCameraCheck();
+      await rig.controller.runCameraCheck();
+      expect(rig.repo.cameraChecks.single.cameraLabel, 'Virtual camera');
+      expect(rig.controller.cameraOutcome!.passed, isTrue);
+
+      await rig.controller.selectCamera('fake-1');
+      expect(rig.frames.activeCameraLabel, 'HD Pro Webcam C920');
+      expect(rig.frames.startCount, 2, reason: 'the new camera is opened');
+      expect(rig.controller.cameraOutcome, isNull);
+      rig.controller.continueToCalibration();
+      expect(rig.controller.step, SessionStep.cameraCheck,
+          reason: 'the new camera has not been checked yet');
+
+      await rig.controller.runCameraCheck();
+      expect(rig.repo.cameraChecks.last.cameraLabel, 'HD Pro Webcam C920');
+      rig.controller.continueToCalibration();
+      expect(rig.controller.step, SessionStep.calibration);
+    });
+
+    test('a camera that cannot start keeps the previous one and says why',
+        () async {
+      final rig = Rig(cameras: const ['Built-in', 'USB camera']);
+      addTearDown(rig.dispose);
+      await rig.toCameraCheck();
+      rig.frames.selectError =
+          const FrameSourceException('The camera is being used by another '
+              'program. Close it and try again.');
+
+      await rig.controller.selectCamera('fake-1');
+      expect(rig.controller.error, contains('another program'));
+      expect(rig.frames.activeCameraLabel, 'Built-in');
+      expect(rig.controller.busy, isFalse);
+    });
+
+    test('the camera cannot be changed after the check step', () async {
+      final rig = Rig(cameras: const ['Built-in', 'USB camera']);
+      addTearDown(rig.dispose);
+      await rig.toCalibration();
+      await rig.controller.selectCamera('fake-1');
+      expect(rig.frames.activeCameraLabel, 'Built-in');
+    });
   });
 
   group('calibration', () {

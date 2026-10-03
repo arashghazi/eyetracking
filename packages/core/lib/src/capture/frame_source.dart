@@ -34,6 +34,22 @@ enum FrameSourceEvent {
   final String wire;
 }
 
+/// A camera the browser reports. [id] is the browser's device id, stable
+/// for this site; [label] is empty until camera permission is given.
+class CameraDevice {
+  const CameraDevice({required this.id, required this.label});
+
+  final String id;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CameraDevice && other.id == id && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(id, label);
+}
+
 /// The camera could not be used; [message] is safe to show.
 class FrameSourceException implements Exception {
   const FrameSourceException(this.message);
@@ -62,9 +78,17 @@ abstract class FrameSource {
     ..reset()
     ..start();
 
-  /// Opens the camera. Throws [FrameSourceException] when access is denied
-  /// or no camera exists, and [UnsupportedError] on platforms without capture.
+  /// Opens the chosen camera (see [selectCamera]), or the browser's default
+  /// when none was chosen or the chosen one is gone. Throws
+  /// [FrameSourceException] when access is denied or no camera exists, and
+  /// [UnsupportedError] on platforms without capture.
   Future<void> start({int width = 640, int height = 480});
+
+  /// Uses the camera with [deviceId] from now on and remembers the choice on
+  /// this device. An open camera is restarted with the new one; if that
+  /// fails, the previous camera is reopened and [FrameSourceException] is
+  /// thrown.
+  Future<void> selectCamera(String deviceId);
 
   /// JPEG frames at about [fps] while listened to; cancelling the
   /// subscription stops capturing but keeps the camera open.
@@ -75,8 +99,14 @@ abstract class FrameSource {
 
   bool get isActive;
 
-  /// Names of the cameras the browser reports (empty until permission).
-  List<String> get cameraLabels;
+  /// Cameras the browser reports; refreshed when the camera opens.
+  List<CameraDevice> get cameras;
+
+  /// Names of the cameras the browser reports.
+  List<String> get cameraLabels => [for (final c in cameras) c.label];
+
+  /// Device id of the camera in use, if known.
+  String? get activeCameraId;
 
   /// Label of the camera in use, if known.
   String? get activeCameraLabel;

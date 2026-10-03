@@ -69,6 +69,7 @@ class CameraCheckIn(BaseModel):
     lighting_ok: bool = True
     frame_w: int = 0
     frame_h: int = 0
+    camera_label: str | None = None
 
 
 class CalibrationTarget(BaseModel):
@@ -177,7 +178,7 @@ def my_session(session_id: int, principal: Principal = Depends(get_principal), u
 
 @router.post("/me/sessions/{session_id}/camera-check")
 def camera_check(session_id: int, body: CameraCheckIn, principal: Principal = Depends(get_principal), uow=Depends(get_uow)):
-    s = uc.camera_check(uow, principal, session_id, body.face_detected, body.face_conf, body.lighting_ok, body.frame_w, body.frame_h)
+    s = uc.camera_check(uow, principal, session_id, body.face_detected, body.face_conf, body.lighting_ok, body.frame_w, body.frame_h, body.camera_label)
     return uc.summarize(uow, s)
 
 

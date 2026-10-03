@@ -299,9 +299,10 @@ class Rig {
     SpeechSynthesizer? speech,
     AudioRecorderFactory? audioRecorder,
     int? seed,
+    List<String> cameras = const ['Fake camera'],
   })  : repo = FakeSessionRepository(),
         gaze = FakeGazeEstimator(),
-        frames = FakeFrameSource(autoFrames: autoFrames) {
+        frames = FakeFrameSource(autoFrames: autoFrames, labels: cameras) {
     controller = SessionFlowController(
       repository: repo,
       gaze: gaze,

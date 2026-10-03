@@ -180,6 +180,34 @@ void main() {
       expect(find.text('Try again'), findsOneWidget);
       expect(find.byKey(const Key('camera-continue')), findsNothing);
     });
+
+    testWidgets('a single camera is named without a choice', (tester) async {
+      useWindow(tester, 800, 900);
+      final rig = Rig();
+      addTearDown(rig.dispose);
+      await drive(tester, rig.toCameraCheck);
+      await pumpFlow(tester, rig.controller);
+      expect(find.text('Camera: Fake camera'), findsOneWidget);
+      expect(find.byKey(const Key('camera-select')), findsNothing);
+    });
+
+    testWidgets('with several cameras the participant chooses one',
+        (tester) async {
+      useWindow(tester, 800, 900);
+      final rig = Rig(cameras: const ['Virtual camera', 'HD Pro Webcam C920']);
+      addTearDown(rig.dispose);
+      await drive(tester, rig.toCameraCheck);
+      await pumpFlow(tester, rig.controller);
+      expect(find.byKey(const Key('camera-select')), findsOneWidget);
+      expect(find.text('Virtual camera'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('camera-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('HD Pro Webcam C920').last);
+      await tester.pumpAndSettle();
+      expect(rig.frames.activeCameraLabel, 'HD Pro Webcam C920');
+      expect(find.text('HD Pro Webcam C920'), findsOneWidget);
+    });
   });
 
   group('session controls', () {

@@ -155,6 +155,7 @@ class CameraCheckRequest {
     required this.lightingOk,
     required this.frameW,
     required this.frameH,
+    this.cameraLabel,
   });
 
   final bool faceDetected;
@@ -163,12 +164,18 @@ class CameraCheckRequest {
   final int frameW;
   final int frameH;
 
+  /// The camera that was checked; the session record follows it when the
+  /// participant picked another camera after the session was created.
+  final String? cameraLabel;
+
   Map<String, dynamic> toJson() => {
         'face_detected': faceDetected,
         'face_conf': faceConf,
         'lighting_ok': lightingOk,
         'frame_w': frameW,
         'frame_h': frameH,
+        if (cameraLabel != null && cameraLabel!.isNotEmpty)
+          'camera_label': cameraLabel,
       };
 }
 

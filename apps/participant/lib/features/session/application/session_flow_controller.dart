@@ -464,11 +464,34 @@ class SessionFlowController extends SafeChangeNotifier {
           lightingOk: passed,
           frameW: w,
           frameH: h,
+          cameraLabel: _frames.activeCameraLabel,
         ),
       );
       _cameraOutcome = outcome;
     } catch (e) {
       _error = userMessage(e);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Switches to another camera before calibration. The face check has to
+  /// pass again with the new camera; the choice is remembered on this device.
+  Future<void> selectCamera(String deviceId) async {
+    if (_busy || _session == null || _step != SessionStep.cameraCheck) return;
+    if (deviceId == _frames.activeCameraId) return;
+    _busy = true;
+    _error = null;
+    _cameraOutcome = null;
+    ++_token;
+    notifyListeners();
+    try {
+      await _frames.selectCamera(deviceId);
+    } on FrameSourceException catch (e) {
+      _error = e.message;
+    } catch (_) {
+      _error = 'The camera could not be started. Check it and try again.';
     } finally {
       _busy = false;
       notifyListeners();

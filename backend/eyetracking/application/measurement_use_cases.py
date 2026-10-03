@@ -145,7 +145,15 @@ def _own_session(uow: MeasurementUnitOfWork, principal: Principal, session_id: i
 
 
 def camera_check(
-    uow: MeasurementUnitOfWork, principal: Principal, session_id: int, face_detected: bool, face_conf: float, lighting_ok: bool, frame_w: int, frame_h: int
+    uow: MeasurementUnitOfWork,
+    principal: Principal,
+    session_id: int,
+    face_detected: bool,
+    face_conf: float,
+    lighting_ok: bool,
+    frame_w: int,
+    frame_h: int,
+    camera_label: str | None = None,
 ) -> Session:
     s = _own_session(uow, principal, session_id)
     s.ensure_open()
@@ -155,14 +163,21 @@ def camera_check(
         s.status = SessionStatus.camera_ok
     if not ok:
         s.notes = list(s.notes) + ["camera_check_failed"]
-    uow.events.add(
-        SessionEvent(
-            session_id=s.id or 0,
-            t_ms=0,
-            type="note",
-            payload={"camera_check": {"face_detected": face_detected, "face_conf": face_conf, "lighting_ok": lighting_ok, "frame_w": frame_w, "frame_h": frame_h, "ok": ok}},
-        )
-    )
+    check = {"face_detected": face_detected, "face_conf": face_conf, "lighting_ok": lighting_ok, "frame_w": frame_w, "frame_h": frame_h, "ok": ok}
+    label = (camera_label or "").strip()[:200]
+    if label:
+        # The participant may pick another camera before checking it: the
+        # session keeps the camera that was actually checked.
+        check["camera_label"] = label
+        if label != (s.camera or {}).get("label"):
+            if s.calibration_valid:
+                s.calibration_valid = False
+                s.notes = list(s.notes) + ["calibration_invalidated:camera_changed"]
+            camera = dict(s.camera or {}, label=label)
+            if frame_w > 0 and frame_h > 0:
+                camera.update(w=frame_w, h=frame_h)
+            s.camera = camera
+    uow.events.add(SessionEvent(session_id=s.id or 0, t_ms=0, type="note", payload={"camera_check": check}))
     uow.commit()
     return s
 

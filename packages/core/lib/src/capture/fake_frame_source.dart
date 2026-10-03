@@ -22,10 +22,34 @@ class FakeFrameSource extends FrameSource {
   /// When set, [start] throws it.
   Object? startError;
 
+  /// When set, [selectCamera] throws it and keeps the previous camera.
+  Object? selectError;
+
   int startCount = 0;
   int stopCount = 0;
   int listenCount = 0;
   bool _active = false;
+  int _activeIndex = 0;
+
+  /// Device ids are `fake-<index>` in the order of [labels].
+  @override
+  List<CameraDevice> get cameras => [
+        for (final (i, label) in labels.indexed)
+          CameraDevice(id: 'fake-$i', label: label),
+      ];
+
+  @override
+  Future<void> selectCamera(String deviceId) async {
+    final index = cameras.indexWhere((c) => c.id == deviceId);
+    if (index < 0) throw const FrameSourceException('No such camera.');
+    if (selectError != null) throw selectError!;
+    if (index == _activeIndex) return;
+    _activeIndex = index;
+    if (_active) {
+      stopCount++;
+      startCount++;
+    }
+  }
   StreamController<CapturedFrame>? _frames;
   final _events = StreamController<FrameSourceEvent>.broadcast(sync: true);
 
@@ -79,10 +103,10 @@ class FakeFrameSource extends FrameSource {
   void emitEvent(FrameSourceEvent event) => _events.add(event);
 
   @override
-  List<String> get cameraLabels => labels;
+  String? get activeCameraId => labels.isEmpty ? null : 'fake-$_activeIndex';
 
   @override
-  String? get activeCameraLabel => labels.isEmpty ? null : labels.first;
+  String? get activeCameraLabel => labels.isEmpty ? null : labels[_activeIndex];
 
   @override
   int get frameWidth => 640;

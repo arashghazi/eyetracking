@@ -90,6 +90,30 @@ def test_camera_check_and_calibration_rules(world):
     assert s["status"] == "calibrated" and s["calibration_valid"] is True and s["calibration"]["points"] == 9
 
 
+def test_camera_check_records_the_chosen_camera(world):
+    c = world.c
+    make_ready(world, world.p1)
+    sid = new_session(world, world.p1)
+    p = auth(world.p1)
+    staff = f"/studies/{world.study_a}/sessions/{sid}"
+    # The participant picked another camera before checking: the session keeps the checked one.
+    check = {"face_detected": True, "face_conf": 0.9, "lighting_ok": True, "frame_w": 1280, "frame_h": 720, "camera_label": "HD Pro Webcam C920"}
+    assert c.post(f"/me/sessions/{sid}/camera-check", json=check, headers=p).status_code == 200
+    detail = c.get(staff, headers=auth(world.researcher_a)).json()
+    assert detail["camera"] == {"label": "HD Pro Webcam C920", "w": 1280, "h": 720}
+    noted = [e["payload"]["camera_check"] for e in detail["events"] if "camera_check" in e["payload"]]
+    assert noted[-1]["camera_label"] == "HD Pro Webcam C920"
+    # Without a label the creation record stays as it was.
+    sid2 = new_session(world, world.p1)
+    assert c.post(f"/me/sessions/{sid2}/camera-check", json=dict(check, camera_label=None), headers=p).status_code == 200
+    assert c.get(f"/studies/{world.study_a}/sessions/{sid2}", headers=auth(world.researcher_a)).json()["camera"] == CAMERA
+    # A different camera after calibration makes the calibration invalid.
+    calibrate(world, world.p1, sid)
+    assert c.get(f"/me/sessions/{sid}", headers=p).json()["calibration_valid"] is True
+    r = c.post(f"/me/sessions/{sid}/camera-check", json=dict(check, camera_label="Integrated Camera"), headers=p)
+    assert r.json()["calibration_valid"] is False and "calibration_invalidated:camera_changed" in r.json()["notes"]
+
+
 def test_validation_recording_and_summary(world):
     c = world.c
     make_ready(world, world.p1)
