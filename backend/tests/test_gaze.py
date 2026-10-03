@@ -86,6 +86,14 @@ def test_l2cs_pipeline_without_weights_is_synthetic(tmp_path):
     torch.save(state, path)
     loaded = L2CSEstimator(FixedBoxDetector([200, 100, 240, 240]), weights_path=str(path), input_size=224)
     assert loaded.weights_loaded is True and loaded.info()["synthetic"] is False and loaded.info()["model_version"] == "fake_l2cs.pkl"
+    # the same keys in a .safetensors file load the same way
+    from safetensors.torch import save_file
+
+    st_path = tmp_path / "fake_l2cs.safetensors"
+    save_file({k: v.contiguous() for k, v in state.items()}, str(st_path))
+    from_st = L2CSEstimator(FixedBoxDetector([200, 100, 240, 240]), weights_path=str(st_path), input_size=224)
+    assert from_st.weights_loaded is True and from_st.info()["model_version"] == "fake_l2cs.safetensors"
+    assert from_st.estimate(img).yaw_deg == pytest.approx(loaded.estimate(img).yaw_deg, abs=1e-4)
     bad = {"conv1.weight": torch.zeros(1)}
     torch.save(bad, tmp_path / "bad.pkl")
     with pytest.raises((ValueError, RuntimeError)):

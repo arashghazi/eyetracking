@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
-l2cs = ["torch>=2.2", "torchvision>=0.17"]
+l2cs = ["torch>=2.2", "torchvision>=0.17", "safetensors>=0.4"]
 ai = ["anthropic>=1.9"]
 
 [tool.pytest.ini_options]

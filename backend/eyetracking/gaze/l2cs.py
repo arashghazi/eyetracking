@@ -2,7 +2,8 @@
 
 torch and torchvision are optional (`pip install -e ".[l2cs]"`). Without published weights the
 adapter reports `synthetic: true`, so an untrained network can exercise the pipeline but never
-produce a measurement claim. Weight files are not part of the repository.
+produce a measurement claim. Weights load from the published `.pkl` or from a `.safetensors` file
+with the same keys. Weight files are not part of the repository.
 """
 from __future__ import annotations
 
@@ -45,7 +46,13 @@ class L2CSEstimator:
         self._idx = torch.arange(bins, dtype=torch.float32, device=self._device)
 
     def _load(self, path: str) -> None:
-        state = self._torch.load(path, map_location="cpu")
+        if path.lower().endswith(".safetensors"):
+            # Same keys as the published .pkl, in a format that cannot run code when read.
+            from safetensors.torch import load_file
+
+            state = load_file(path, device="cpu")
+        else:
+            state = self._torch.load(path, map_location="cpu")
         if isinstance(state, dict) and "state_dict" in state:
             state = state["state_dict"]
         backbone_state = {k: v for k, v in state.items() if not k.startswith(("fc_yaw_gaze", "fc_pitch_gaze", "fc_finetune", "fc."))}
