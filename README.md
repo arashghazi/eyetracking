@@ -26,7 +26,8 @@
 
 | مسیر | محتوا |
 |---|---|
-| `backend/` | سرویس Python / FastAPI برای حساب، جلسه و داده (`backend/README.md`) |
+| `backend-dotnet/` | سرور پژوهش به C# (ASP.NET Core، EF Core، SQL Server) با همان API؛ جایگزین سرویس پایتون (`backend-dotnet/README.md`) |
+| `backend/` | سرویس Python / FastAPI (مرجع تا کنار گذاشته شود)، سرویس نگاه (`eyetracking/gaze`) و آزمون‌های HTTP مشترک هر دو بک‌اند (`backend/README.md`) |
 | `apps/participant/` | اپ شرکت‌کننده (Flutter) |
 | `apps/admin/` | پنل پژوهشگر (Flutter) |
 | `packages/core/` | بستهٔ مشترک Flutter: تم، کلاینت API، مدل‌ها |

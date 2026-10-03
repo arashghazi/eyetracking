@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EyeTracking.Application/EyeTracking.Application.csproj" />
+    <Project Path="src/EyeTracking.Domain/EyeTracking.Domain.csproj" />
+    <Project Path="src/EyeTracking.Infrastructure/EyeTracking.Infrastructure.csproj" />
+    <Project Path="src/EyeTracking.Web/EyeTracking.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EyeTracking.Tests/EyeTracking.Tests.csproj" />
+  </Folder>
+</Solution>

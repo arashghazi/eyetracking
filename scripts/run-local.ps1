@@ -13,9 +13,13 @@
   scripts\run-local.cmd
   scripts\run-local.cmd -Model l2cs -Weights D:\Models\L2CSNet_gaze360.pkl
   scripts\run-local.cmd -Rebuild -NoPull
+  scripts\run-local.cmd -Backend dotnet     (C# API on SQL Server; see backend-dotnet\README.md)
 #>
 [CmdletBinding()]
 param(
+  [ValidateSet('python', 'dotnet')] [string]$Backend = 'python',
+  [string]$SqlServer = 'localhost',
+  [string]$Database = 'EyeTracking_Local',
   [ValidateSet('synthetic', 'l2cs')] [string]$Model = 'synthetic',
   [string]$Weights = '',
   [string]$Device = 'cpu',
@@ -103,6 +107,18 @@ function Start-Server([string]$name, [string]$exe, [string[]]$argv, [string]$cwd
   return [pscustomobject]@{ Name = $name; Process = $p; Err = $log }
 }
 
+function Start-DotnetServer([string]$name, [string]$dll, [string]$cwd) {
+  $log = Join-Path $LogDir "$name.log"
+  "---- $(Get-Date -Format s) start" | Out-File -Append -Encoding ascii -FilePath $log
+  if ($OnWindows) {
+    # cmd keeps the log redirection alive after this window closes; stop-local ends the whole tree.
+    $p = Start-Process -FilePath $env:ComSpec -ArgumentList ('/d /c dotnet "' + $dll + '" >> "' + $log + '" 2>&1') -WorkingDirectory $cwd -WindowStyle Hidden -PassThru
+  } else {
+    $p = Start-Process -FilePath 'dotnet' -ArgumentList (Quote-Arg $dll) -WorkingDirectory $cwd -RedirectStandardOutput $log -RedirectStandardError "$log.err" -PassThru
+  }
+  return [pscustomobject]@{ Name = $name; Process = $p; Err = $log }
+}
+
 function Wait-Http([string]$url, [int]$seconds, $server) {
   $deadline = (Get-Date).AddSeconds($seconds)
   while ((Get-Date) -lt $deadline) {
@@ -132,6 +148,13 @@ if ($fv -and $fv.IndexOf('{') -ge 0) {
   Step "Flutter $($info.frameworkVersion) (Dart $dart) found"
 } else { Write-Warning 'Could not read the Flutter version; continuing.' }
 
+if ($Backend -eq 'dotnet') {
+  Require-Command 'dotnet' 'Install the .NET 10 SDK from https://dotnet.microsoft.com/download and reopen the window.'
+  $sdks = Get-NativeOutput 'dotnet' @('--list-sdks')
+  if (-not ($sdks -match '(?m)^1\d\.')) { throw 'The C# backend needs the .NET 10 SDK or newer (dotnet --list-sdks shows none).' }
+  Step ".NET SDK found; research API: C# on SQL Server $SqlServer, database $Database"
+}
+
 if ($Model -eq 'l2cs') {
   if (-not $Weights) { throw 'Model l2cs needs -Weights <path to the published L2CS-Net Gaze360 .pkl file>. See docs/run-local.fa.md.' }
   if (-not (Test-Path $Weights)) { throw "Weights file not found: $Weights" }
@@ -158,20 +181,20 @@ if (-not $head) { $head = 'unknown' }
 Step "Code version: $head"
 
 # ---------------------------------------------------------------- python environment
-$backend = Join-Path $Repo 'backend'
-$venv = Join-Path $backend '.venv'
+$backendDir = Join-Path $Repo 'backend'
+$venv = Join-Path $backendDir '.venv'
 if ($OnWindows) { $vpy = Join-Path $venv 'Scripts\python.exe' } else { $vpy = Join-Path $venv 'bin/python' }
-if (-not (Test-Path $vpy)) { Invoke-Logged 'Creating the Python environment (backend\.venv)' $py.Exe ($py.Pre + @('-m', 'venv', $venv)) $backend }
+if (-not (Test-Path $vpy)) { Invoke-Logged 'Creating the Python environment (backend\.venv)' $py.Exe ($py.Pre + @('-m', 'venv', $venv)) $backendDir }
 $extras = 'test,ai'
 if ($Model -eq 'l2cs') { $extras = 'test,ai,l2cs' }
 $pipStamp = Join-Path $DataDir 'pip-stamp.txt'
-$wantStamp = (Get-FileHash (Join-Path $backend 'pyproject.toml')).Hash + "|$extras"
+$wantStamp = (Get-FileHash (Join-Path $backendDir 'pyproject.toml')).Hash + "|$extras"
 $haveStamp = ''
 if (Test-Path $pipStamp) { $haveStamp = (Get-Content $pipStamp -Raw).Trim() }
 if ($haveStamp -ne $wantStamp) {
   $msg = 'Installing backend packages (first time takes a few minutes)'
   if ($Model -eq 'l2cs') { $msg = 'Installing backend packages with PyTorch for L2CS (large download)' }
-  Invoke-Logged $msg $vpy @('-m', 'pip', 'install', '--disable-pip-version-check', '-q', '-e', ".[$extras]") $backend
+  Invoke-Logged $msg $vpy @('-m', 'pip', 'install', '--disable-pip-version-check', '-q', '-e', ".[$extras]") $backendDir
   Set-Content -Path $pipStamp -Value $wantStamp
 }
 
@@ -192,6 +215,22 @@ if ($needBuild) {
   Set-Content -Path $buildStamp -Value $wantBuild
 } else { Step 'Web apps are up to date (use -Rebuild to force a build)' }
 
+# ---------------------------------------------------------------- C# research API (optional)
+$apiDir = Join-Path $DataDir 'api-dotnet'
+if ($Backend -eq 'dotnet') {
+  $dotnetSrc = Join-Path $Repo 'backend-dotnet\src'
+  $newest = Get-ChildItem -Path $dotnetSrc -Recurse -File -Include *.cs, *.csproj -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+  $wantApi = "$head|$($newest.LastWriteTimeUtc.Ticks)"
+  $apiStamp = Join-Path $DataDir 'api-dotnet-stamp.txt'
+  $haveApi = ''
+  if (Test-Path $apiStamp) { $haveApi = (Get-Content $apiStamp -Raw).Trim() }
+  if ($Rebuild -or ($haveApi -ne $wantApi) -or -not (Test-Path (Join-Path $apiDir 'EyeTracking.Web.dll'))) {
+    Invoke-Logged 'Building the C# research API (dotnet publish)' 'dotnet' @('publish', (Join-Path $dotnetSrc 'EyeTracking.Web'), '-c', 'Release', '-o', $apiDir, '--nologo', '-v', 'q') $Repo
+    Set-Content -Path $apiStamp -Value $wantApi
+  } else { Step 'C# research API is up to date' }
+}
+
 # ---------------------------------------------------------------- local secrets
 $secretsFile = Join-Path $DataDir 'local-accounts.json'
 if (Test-Path $secretsFile) { $sec = Get-Content $secretsFile -Raw | ConvertFrom-Json }
@@ -209,6 +248,11 @@ else {
 $dbFile = Join-Path $DataDir 'eyetracking.db'
 $firstRun = -not (Test-Path $dbFile)
 $env:EYETRACKING_DATABASE_URL = 'sqlite:///' + ($dbFile -replace '\\', '/')
+if ($Backend -eq 'dotnet') {
+  $env:EYETRACKING_DB_CONNECTION = "Server=$SqlServer;Database=$Database;Trusted_Connection=True;TrustServerCertificate=True"
+  $exists = Get-NativeOutput 'sqlcmd' @('-S', $SqlServer, '-E', '-C', '-h', '-1', '-W', '-Q', "SET NOCOUNT ON; SELECT CASE WHEN DB_ID('$Database') IS NULL THEN 0 ELSE 1 END")
+  if ($exists) { $firstRun = ($exists.Trim() -eq '0') } else { $firstRun = -not (Test-Path (Join-Path $DataDir 'demo-dotnet.json')) }
+}
 $env:EYETRACKING_JWT_SECRET = $sec.jwt_secret
 $env:EYETRACKING_BOOTSTRAP_ADMIN_EMAIL = $sec.admin_email
 $env:EYETRACKING_BOOTSTRAP_ADMIN_PASSWORD = $sec.admin_password
@@ -222,9 +266,15 @@ $env:EYETRACKING_GAZE_DEVICE = $Device
 if ($Weights) { $env:EYETRACKING_GAZE_WEIGHTS = $Weights } else { Remove-Item Env:EYETRACKING_GAZE_WEIGHTS -ErrorAction SilentlyContinue }
 
 Step "Starting the gaze service on $gazeUrl (estimator: $Model)"
-$gaze = Start-Server 'gaze' $vpy @('uvicorn', 'eyetracking.gaze.main:app', '--host', '127.0.0.1', '--port', "$GazePort") $backend
-Step "Starting the research API on $apiUrl"
-$api = Start-Server 'api' $vpy @('uvicorn', 'eyetracking.web.main:app', '--host', '127.0.0.1', '--port', "$ApiPort") $backend
+$gaze = Start-Server 'gaze' $vpy @('uvicorn', 'eyetracking.gaze.main:app', '--host', '127.0.0.1', '--port', "$GazePort") $backendDir
+if ($Backend -eq 'dotnet') {
+  Step "Starting the research API on $apiUrl (C#, SQL Server)"
+  $env:ASPNETCORE_URLS = "http://127.0.0.1:$ApiPort"
+  $api = Start-DotnetServer 'api' (Join-Path $apiDir 'EyeTracking.Web.dll') $backendDir
+} else {
+  Step "Starting the research API on $apiUrl"
+  $api = Start-Server 'api' $vpy @('uvicorn', 'eyetracking.web.main:app', '--host', '127.0.0.1', '--port', "$ApiPort") $backendDir
+}
 Step 'Serving the Participant App and the Research Admin'
 $part = Start-Server 'participant-web' $vpy @('http.server', "$ParticipantPort", '--bind', '127.0.0.1', '--directory', $partWeb) $Repo
 $admin = Start-Server 'admin-web' $vpy @('http.server', "$AdminPort", '--bind', '127.0.0.1', '--directory', $adminWeb) $Repo
@@ -242,6 +292,7 @@ $gazeInfo = (Invoke-WebRequest -Uri "http://127.0.0.1:$GazePort/info" -UseBasicP
 
 # ---------------------------------------------------------------- demo data
 $demoFile = Join-Path $DataDir 'demo.json'
+if ($Backend -eq 'dotnet') { $demoFile = Join-Path $DataDir 'demo-dotnet.json' }
 if ($firstRun -and -not $NoDemo) {
   Step 'Creating the demo study (first run only)'
   $seedArgs = @((Join-Path $PSScriptRoot 'seed_demo.py'), '--api', "http://127.0.0.1:$ApiPort", '--participant-url', "http://localhost:$ParticipantPort",
@@ -259,6 +310,8 @@ if (Test-Path $demoFile) { $demo = Get-Content $demoFile -Raw | ConvertFrom-Json
 Write-Host ''
 Write-Host 'EyeTracking is running on this computer.' -ForegroundColor Green
 Write-Host ''
+if ($Backend -eq 'dotnet') { Write-Host "  Research API     $apiUrl  (C#, SQL Server $SqlServer, database $Database)" }
+else { Write-Host "  Research API     $apiUrl  (Python, SQLite)" }
 Write-Host "  Research Admin   http://localhost:$AdminPort"
 Write-Host "     administrator  $($sec.admin_email)  /  $($sec.admin_password)"
 if ($demo -and -not $demo.skipped) { Write-Host "     researcher     $($sec.researcher_email)  /  $($sec.researcher_password)" }

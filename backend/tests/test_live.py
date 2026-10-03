@@ -51,6 +51,7 @@ def say(c, sid, p, n, text):
     return r.json()
 
 
+@pytest.mark.python_only
 def test_live_protocol_rules():
     cfg = validate_live({})
     assert cfg["max_turns"] == 8 and cfg["store_transcript"] is False and cfg["input_modes"] == ["typed", "speech"]
@@ -62,6 +63,7 @@ def test_live_protocol_rules():
     assert scrub_for_storage("mail me at a@b.org or +46 70 123 45 67, see www.x.org") == "mail me at [e-mail removed] or [number removed], see [link removed]"
 
 
+@pytest.mark.python_only
 def test_guard_rules():
     cfg = validate_live({"max_reply_words": 10})
     ok = guard_reply({"reply": "Trains are great. What do you like about steam engines?", "participant_on_topic": True, "participant_distress": False, "participant_wants_to_stop": False}, cfg, "Sam", "Trains", 0)
@@ -209,6 +211,7 @@ def _use_claude(world, messages):
     return gen
 
 
+@pytest.mark.python_only
 def test_claude_replies_budget_and_failures(world):
     c = world.c
     p = auth(world.p1)
@@ -237,6 +240,7 @@ def test_claude_replies_budget_and_failures(world):
     assert "provider_error" in t["avatar"]["flags"] and t["avatar"]["text"].startswith("Let's keep talking about Trains")
 
 
+@pytest.mark.python_only
 def test_whisper_http_adapter():
     seen = {}
 

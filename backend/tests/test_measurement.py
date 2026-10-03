@@ -241,6 +241,7 @@ def test_staff_views_are_coded_and_paged(world):
     assert c.get(f"/studies/{world.study_a}/sessions/{sid}/samples", headers=auth(world.researcher_b)).status_code == 403
 
 
+@pytest.mark.python_only
 def test_coverage_counts_gaps_as_missing():
     events = [SessionEvent(session_id=1, t_ms=0, type="segment_start", payload={"segment": "baseline"}), SessionEvent(session_id=1, t_ms=10000, type="segment_end")]
     samples = [GazeSample(session_id=1, t_ms=t, x=1.0, y=1.0, conf=0.9, valid=True, region="eye", segment="baseline") for t in range(0, 2001, 100)]

@@ -92,6 +92,7 @@ def test_text_and_video_flow_with_fake_providers(world):
     assert actions.count("ai_job_run") == 4 and actions.count("ai_job_created") == 2
 
 
+@pytest.mark.python_only
 def test_budget_cap_retries_and_terminal_failures(world):
     c = world.c
     base = f"/studies/{world.study_a}/ai"
@@ -147,6 +148,7 @@ def test_budget_cap_retries_and_terminal_failures(world):
     assert c.post(f"{base}/jobs/{job2['id']}/cancel", headers=auth(world.analyst_a)).status_code == 403
 
 
+@pytest.mark.python_only
 def test_worker_run_once_processes_jobs(world):
     c = world.c
     from eyetracking.infrastructure.ai.worker import AiWorker
@@ -158,6 +160,7 @@ def test_worker_run_once_processes_jobs(world):
     assert worker.run_once() == {"processed": 0, "succeeded": 0, "failed": 0}
 
 
+@pytest.mark.python_only
 def test_anthropic_adapter_with_stub_client():
     from eyetracking.domain.ai import TextRequest, sample_script
 
@@ -197,6 +200,7 @@ def test_anthropic_adapter_with_stub_client():
     assert AnthropicTextGenerator(api_key=None).info()["configured"] is False
 
 
+@pytest.mark.python_only
 def test_heygen_adapter_with_mock_transport():
     polls = {"n": 0}
 

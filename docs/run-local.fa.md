@@ -69,6 +69,22 @@ D:\Work\eyeTracking\scripts\run-local.cmd -Model l2cs -Weights D:\Models\L2CSNet
 
 ارائه‌دهندهٔ هوش مصنوعی به‌طور پیش‌فرض ساختگی و رایگان است. برای Anthropic یا HeyGen کلیدها را در `backend\.env` بگذارید (نمونه در `backend\.env.example`). این فایل هرگز کامیت نمی‌شود.
 
+## بک‌اند C# با SQL Server
+
+سرور پژوهش به C# (ASP.NET Core و EF Core) بازنویسی شده است (`backend-dotnet`) و همان API پایتون را دارد؛ اپ‌ها تغییری نمی‌خواهند. سرویس نگاه همچنان پایتون است. پیش‌نیاز اضافه: .NET 10 SDK و یک SQL Server که با حساب ویندوز (Windows Authentication) در دسترس باشد.
+
+```powershell
+D:\Work\eyeTracking\scripts\run-local.cmd -Backend dotnet
+```
+
+| گزینه | کار |
+|---|---|
+| `-Backend dotnet` | سرور C# به‌جای پایتون (پیش‌فرض هنوز `python` است) |
+| `-SqlServer <نام>` | سرور SQL (پیش‌فرض `localhost`) |
+| `-Database <نام>` | نام پایگاه داده (پیش‌فرض `EyeTracking_Local`)؛ اجرای اول خودش آن را می‌سازد |
+
+داده‌های SQLite پایتون به این پایگاه منتقل نمی‌شوند؛ اجرای اول مطالعهٔ نمونه را دوباره می‌سازد. حساب‌ها و رمزهای `local-accounts.json` همان‌ها می‌مانند. برنامهٔ منتشرشده در `D:\Work\eyetracking-local\api-dotnet` است و لاگ آن در `logs\api.log`.
+
 ## گفت‌وگوی زنده با آواتار (گام ۷)
 به‌طور پیش‌فرض ارائه‌دهندهٔ توسعه فعال است: چهرهٔ نمونه، صدای مرورگر و پاسخ‌های قاعده‌مند. برای پاسخ با Claude و تبدیل گفتار به متن روی همین کامپیوتر، این‌ها را در `backend\.env` بگذارید و دوباره اجرا کنید:
 

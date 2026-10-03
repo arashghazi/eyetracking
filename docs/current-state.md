@@ -19,8 +19,13 @@ Updated: 2026-10-01 · design authority: docs/design/EyeTracking-Product-Design-
 - Flutter: participant choice card, conversation view, distress banner, closing, summary card; admin live protocol editor, Live avatar card, session conversation view, monitor and report columns.
 - Tests: 63 backend; Flutter core 182, participant 423, admin 540. Browser run in docs/features/step7-e2e.md. Vendor decision: docs/design/live-avatar-vendor-decision.fa.md. No streaming avatar, Claude call or real speech has been used yet; abandoned sessions keep conversations open.
 
+## Research API in C# (2026-10-03)
+- `backend-dotnet`: ASP.NET Core 10, EF Core, SQL Server (migration `Initial`, 35 tables); same HTTP contract as the Python service, steps 1–7 ported. The Python service stays as the reference; the gaze service stays Python.
+- Contract: the Python HTTP tests against the C# API (`EYETRACKING_PARITY=dotnet`): 54 passed, 10 skipped (Python internals, each with a C# test except the SQLite dev-migration one); `dotnet test` 43; Python suite 64.
+- Known differences: text longer than a column is cut where SQLite kept it; out-of-range tracker times and infinite coordinates are 422; pydantic's exact type-error names differ; non-integer ids in paths are 404 not 422.
+
 ## Local run
-Windows one-command run: scripts/run-local.cmd (data, accounts and logs outside the repo). Guide: docs/run-local.fa.md.
+Windows one-command run: scripts/run-local.cmd (data, accounts and logs outside the repo; `-Backend dotnet` for the C# API). Guide: docs/run-local.fa.md.
 
 ## Not started
 The pilot with participants (research team); a streaming avatar vendor (decision needed).

@@ -4,6 +4,7 @@ import csv
 import io
 import random
 
+import pytest
 from sqlalchemy import create_engine, inspect, text
 
 from eyetracking.infrastructure.uow import create_schema
@@ -273,6 +274,7 @@ def test_pilot_report_csv_and_erasure(world):
     assert rep["sessions"] == 0 and rep["observations"]["total"] == 0
 
 
+@pytest.mark.python_only
 def test_dev_sqlite_gets_new_columns(tmp_path):
     url = f"sqlite:///{tmp_path / 'old.db'}"
     engine = create_engine(url)
